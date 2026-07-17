@@ -7,6 +7,8 @@ import {
   JIRA_ISSUE_TYPES,
   RELEASE_PLAN,
   DEVICE_COMM,
+  DOCUMENTATION,
+  FIELD_MATRIX,
   type LaneKey,
   type LaneItem,
 } from "../data";
@@ -186,6 +188,50 @@ export default function Timeline({ onOpenStage }: { onOpenStage: (id: number) =>
               <div className="comm-tool">🧰 {c.tool}</div>
             </div>
           ))}
+        </div>
+      </div>
+
+      {/* What runs where */}
+      <div className="card" style={{ marginTop: 20 }}>
+        <h3 className="section-title">🛰️ What runs where — devices & tools per phase</h3>
+        <p className="section-sub">
+          The concrete answer to "which device types and which tools are needed" at each phase.
+        </p>
+        <div className="matrix">
+          <div className="matrix-head">
+            <span>Phase</span>
+            <span>Device type(s) in scope</span>
+            <span>Tools / handhelds required</span>
+          </div>
+          {FIELD_MATRIX.map((m) => (
+            <div className="matrix-row" key={m.phase}>
+              <span className="matrix-phase">{m.icon} {m.phase}</span>
+              <span>{m.devices}</span>
+              <span className="matrix-tools">{m.tools}</span>
+            </div>
+          ))}
+        </div>
+      </div>
+
+      {/* Documentation */}
+      <div className="two-col" style={{ marginTop: 20 }}>
+        <div className="card">
+          <h3 className="section-title">📘 Internal Documentation</h3>
+          <p className="section-sub">Engineering-only — lives in the secure vault.</p>
+          <div className="pill-grid">
+            {DOCUMENTATION.internal.map((d) => (
+              <span className="pill" key={d}>🔒 {d}</span>
+            ))}
+          </div>
+        </div>
+        <div className="card">
+          <h3 className="section-title">📗 External Documentation</h3>
+          <p className="section-sub">Customer-facing — shipped with the product / SDK.</p>
+          <div className="pill-grid">
+            {DOCUMENTATION.external.map((d) => (
+              <span className="pill" key={d}>🌐 {d}</span>
+            ))}
+          </div>
         </div>
       </div>
 

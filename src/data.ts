@@ -49,8 +49,8 @@ export const STAGES: Stage[] = [
   {
     id: 1,
     key: "design",
-    name: "Product Design & Development",
-    tagline: "The device is engineered, versioned and released for build.",
+    name: "Design, Development & Integration",
+    tagline: "The device is engineered, versioned, documented and released for build.",
     icon: "🧬",
     tools: [
       { name: "Altium (or equivalent)", type: "Software", purpose: "Schematic, PCB layout, BOM and Gerber/ODB++ generation." },
@@ -278,7 +278,7 @@ export const STAGES: Stage[] = [
 /*  Lifecycle Timeline — swimlane matrix (disciplines x phases)        */
 /* ------------------------------------------------------------------ */
 
-export type LaneKey = "hardware" | "firmware" | "software" | "artifacts" | "loop";
+export type LaneKey = "hardware" | "firmware" | "software" | "artifacts" | "docs" | "loop";
 
 export interface LaneItem {
   label: string;
@@ -291,6 +291,7 @@ export const LANES: { key: LaneKey; name: string; icon: string; color: string; b
   { key: "firmware", name: "Firmware", icon: "💾", color: "#7c3aed", bg: "rgba(124,58,237,0.08)" },
   { key: "software", name: "Software & Cloud", icon: "🖥️", color: "#0f9d6b", bg: "rgba(15,157,107,0.08)" },
   { key: "artifacts", name: "Artifacts & Data", icon: "🗄️", color: "#d97706", bg: "rgba(217,119,6,0.08)" },
+  { key: "docs", name: "Documentation", icon: "📘", color: "#4f46e5", bg: "rgba(79,70,229,0.08)" },
   { key: "loop", name: "Feedback & Quality", icon: "🔁", color: "#dc2626", bg: "rgba(220,38,38,0.08)" },
 ];
 
@@ -311,8 +312,8 @@ const r = (label: string): LaneItem => ({ label, red: true });
 export const PHASES: Phase[] = [
   {
     id: 1,
-    short: "Design",
-    name: "Product Design & Development",
+    short: "Design & Dev",
+    name: "Design, Development & Integration",
     icon: "🧬",
     output: "Released Design Package",
     lanes: {
@@ -320,6 +321,7 @@ export const PHASES: Phase[] = [
       firmware: [t("VS Code"), t("Git version control"), t("CI/CD build pipeline"), t("Signed release image")],
       software: [t("Requirements / PLM"), t("Cloud API contracts"), r("AI coding tool (to lock)")],
       artifacts: [t("Schematic, PCB, BOM, Gerber"), t("Firmware source + signed binary"), t("→ Secure PLM Vault (RBAC, audit)")],
+      docs: [t("Internal: HLD, LLD, Doxygen"), t("Internal: test plans / specs"), t("External: Datasheet (draft)")],
       loop: [t("Jira: ECR / ECO change control"), t("Field fixes land here")],
     },
   },
@@ -334,6 +336,7 @@ export const PHASES: Phase[] = [
       firmware: [t("Production test firmware"), t("Flash released image")],
       software: [t("Manufacturing test software (MES)"), t("Device serialization utility")],
       artifacts: [t("FW/HW version, MAC, IMEI, ICCID"), t("RF calibration, batch, test results")],
+      docs: [t("Internal: PDI work instructions"), t("Internal: test reports")],
       loop: [t("Yield & first-pass tracking"), t("Batch analytics → Jira → Design")],
     },
   },
@@ -348,6 +351,7 @@ export const PHASES: Phase[] = [
       firmware: [t("Survey device firmware")],
       software: [t("RF network planning software"), t("Coverage prediction engine")],
       artifacts: [t("GPS, noise floor, occupancy"), t("RSSI/RSRP/RSRQ/SINR, operator")],
+      docs: [t("Internal: survey SOP"), t("Site Readiness Report")],
       loop: [t("Weak site → re-plan / defer")],
     },
   },
@@ -362,6 +366,7 @@ export const PHASES: Phase[] = [
       firmware: [t("Commissioning / join stack")],
       software: [t("Installer mobile application")],
       artifacts: [t("Meter/NIC ID, GPS, photos"), t("RF join, parent, hop, cellular, MQTT")],
+      docs: [t("External: Installation Manual"), t("External: Getting Started Guide")],
       loop: [t("Commissioning fail → on-site fix"), t("Config / parent re-selection")],
     },
   },
@@ -376,6 +381,7 @@ export const PHASES: Phase[] = [
       firmware: [t("Firmware version tracking"), t("FOTA campaign manager")],
       software: [t("Boltron NMS"), t("RF / cellular / MQTT / DLMS"), t("Comm-status classifier")],
       artifacts: [t("RSSI, ETX, neighbors, hop"), t("Last-seen age, reboots, uptime")],
+      docs: [t("Internal: runbooks / SLAs"), t("External: User Manual")],
       loop: [t("Predictive alert → dispatch"), t("Anomaly → RCA → Jira → fix")],
     },
   },
@@ -390,6 +396,7 @@ export const PHASES: Phase[] = [
       firmware: [t("Firmware recovery"), t("FOTA recovery")],
       software: [t("On-site diagnostics app")],
       artifacts: [t("Device & connectivity logs"), t("RF route, cellular history, signatures")],
+      docs: [t("Internal: service SOP"), t("External: Troubleshooting Guide")],
       loop: [t("Unresolved → return to depot"), t("Failure signature → Jira / RCA")],
     },
   },
@@ -404,6 +411,7 @@ export const PHASES: Phase[] = [
       firmware: [t("Reflash / refurbish image")],
       software: [t("RMA / warranty system")],
       artifacts: [t("Failure class, root cause"), t("Repair actions, replacement history")],
+      docs: [t("Internal: 8D / RCA reports"), t("External: RMA / warranty policy")],
       loop: [t("Root cause → vendor/batch analytics"), t("Corrective action → Jira → Design")],
     },
   },
@@ -420,6 +428,7 @@ export const PHASES: Phase[] = [
       firmware: [r("Firmware integration guide"), r("HAL / driver layer")],
       software: [r("Public GitHub repo"), r("Device SDK (C / Python)"), r("Hosted sandbox"), r("Reference app + samples"), r("API docs + Postman")],
       artifacts: [r("Versioned SDK releases"), r("Changelog / release notes"), r("Compatibility matrix")],
+      docs: [r("External: SDK & API Reference"), r("External: Getting Started + samples"), r("External: Integration Guide")],
       loop: [r("Customer issues / PRs → Jira")],
     },
   },
@@ -435,6 +444,7 @@ export const PHASES: Phase[] = [
       firmware: [],
       software: [t("KB portal"), t("FAQ builder"), t("Ticket portal"), t("Docs site")],
       artifacts: [t("FAQs, how-to, guides"), t("Known issues, release notes")],
+      docs: [t("External: FAQs, how-to, release notes"), t("External: Docs site")],
       loop: [t("Query → Jira / RCA"), t("Deflection analytics")],
     },
   },
@@ -462,6 +472,76 @@ export const DESIGN_GOVERNANCE = {
     "Queries are raised against the exact part + version, linking manufacturing and field feedback straight back to the owning engineer.",
   ],
 };
+
+/* ------------------------------------------------------------------ */
+/*  Documentation — internal vs external                               */
+/* ------------------------------------------------------------------ */
+
+export const DOCUMENTATION = {
+  internal: [
+    "HLD — High-Level Design",
+    "LLD — Low-Level Design",
+    "Doxygen / source API docs",
+    "Architecture & interface specs",
+    "Test plans & reports",
+    "Manufacturing / PDI work instructions",
+    "Service SOPs & runbooks",
+    "Root-cause / 8D reports",
+  ],
+  external: [
+    "Datasheet",
+    "Getting Started Guide",
+    "User / Installation Manual",
+    "SDK & API Reference",
+    "Firmware Upgrade Guide",
+    "Release Notes / Changelog",
+    "FAQ / Knowledge Base articles",
+    "Compatibility Matrix",
+  ],
+};
+
+/* ------------------------------------------------------------------ */
+/*  What runs where — device + tool matrix per phase                   */
+/* ------------------------------------------------------------------ */
+
+export const FIELD_MATRIX: { phase: string; icon: string; devices: string; tools: string }[] = [
+  {
+    phase: "Manufacturing & PDI",
+    icon: "🏭",
+    devices: "All classes as bare units: Smart Meter NIC, RF Router, Gateway, DCU",
+    tools: "Flashing & Provisioning jig · Functional test jig · RF validation jig",
+  },
+  {
+    phase: "Pre-Installation Survey",
+    icon: "📡",
+    devices: "No device yet — the site itself is assessed",
+    tools: "GPS RF survey handheld · GPS cellular survey handheld",
+  },
+  {
+    phase: "Installation & Commissioning",
+    icon: "🛠️",
+    devices: "NIC + Meter, RF Router, Gateway, DCU (being installed)",
+    tools: "RF network checker handheld · RF master handheld gateway · Installer app",
+  },
+  {
+    phase: "Operations & Monitoring",
+    icon: "📊",
+    devices: "Full deployed fleet: NIC, RF Router, Gateway, DCU",
+    tools: "Boltron NMS (remote, no HHD) — HHD only dispatched for Non/Never-Comm",
+  },
+  {
+    phase: "Field Service & Diagnostics",
+    icon: "🚚",
+    devices: "Flagged units: Non-Comm / Never-Comm NIC, Router, Gateway, DCU",
+    tools: "RF Service Handheld (HHD) · 4G Service Tool (HHD) · Service Gateway",
+  },
+  {
+    phase: "Repair, Replacement & Warranty",
+    icon: "🧰",
+    devices: "Returned units (RMA) of any class",
+    tools: "Service center test jig · RF validation bench · Cellular validation bench",
+  },
+];
 
 /* ------------------------------------------------------------------ */
 /*  RED — decisions that need your confirmation                        */
