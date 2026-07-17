@@ -452,10 +452,10 @@ export const PHASES: Phase[] = [
 
 // The master closed loop: how a field bug travels back to engineering and re-deploys.
 export const FEEDBACK_LOOP: { icon: string; title: string; detail: string }[] = [
-  { icon: "🚨", title: "Failure Signature", detail: "Field / warranty / customer defect captured with logs & context." },
-  { icon: "🔍", title: "Root Cause Analysis", detail: "NMS analytics + bench correlate the failure." },
-  { icon: "📋", title: "Jira Issue (ECR/ECO)", detail: "Typed HW/FW/SW issue raised & triaged for a release." },
-  { icon: "🧬", title: "Engineering Fix", detail: "Altium / VS Code change → new signed version in Git." },
+  { icon: "🚨", title: "Issue Raised", detail: "Field incident or customer-reported defect captured with logs & context." },
+  { icon: "📋", title: "Logged in Jira", detail: "Typed as HW / FW / SW / INC issue, triaged & prioritized for a release." },
+  { icon: "🔍", title: "Root Cause Analysis", detail: "NMS analytics + bench reproduce and correlate the failure." },
+  { icon: "🧬", title: "Engineering Fix", detail: "Altium / VS Code change → new signed version in Git (ECR/ECO)." },
   { icon: "✅", title: "Validation", detail: "CI + bench regression before release." },
   { icon: "🚀", title: "Deploy", detail: "FOTA to fleet + updated production line + SDK release." },
 ];
