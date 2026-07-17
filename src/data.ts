@@ -109,8 +109,11 @@ export const STAGES: Stage[] = [
     tools: [
       { name: "GPS Enabled RF Survey Handheld", type: "Hardware", purpose: "Measures RF conditions at the candidate site." },
       { name: "GPS Enabled Cellular Survey Handheld", type: "Hardware", purpose: "Measures cellular coverage and quality." },
+      { name: "Obstruction Scanner (LiDAR + AI Camera)", type: "Hardware", purpose: "Measures obstruction height/distance/bearing and classifies high-rise buildings & trees." },
+      { name: "Barometric Altimeter + IMU Dead-Reckoning", type: "Hardware", purpose: "Detects ground/basement level and positions the meter where GPS is lost." },
+      { name: "RF Spectrum Analyzer", type: "Hardware", purpose: "Measures real signal attenuation and noise floor behind obstructions." },
       { name: "RF Network Planning Software", type: "Software", purpose: "Plans mesh topology and node placement." },
-      { name: "Coverage Prediction Engine", type: "Software", purpose: "Predicts coverage and identifies weak spots." },
+      { name: "Coverage Prediction Engine", type: "Software", purpose: "Predicts coverage from RF + obstruction profiles and identifies weak spots." },
     ],
     diagnostics: [
       "GPS Coordinates",
@@ -189,7 +192,10 @@ export const STAGES: Stage[] = [
     tools: [
       { name: "RF Service Handheld (HHD)", type: "Hardware", purpose: "Local RF diagnostics and route validation." },
       { name: "4G Service Tool (HHD)", type: "Hardware", purpose: "Cellular validation and troubleshooting." },
+      { name: "RF Network Checker HHD", type: "Hardware", purpose: "Re-commissions Never-Comm devices on site." },
       { name: "Service Gateway", type: "Hardware", purpose: "Portable gateway for field recovery." },
+      { name: "Obstruction Re-check Spectrum Analyzer", type: "Hardware", purpose: "Confirms fixed obstructions and RF noise during field visits." },
+      { name: "On-Site Diagnostics App", type: "Software", purpose: "Guides technicians and uploads field logs to the platform." },
       { name: "Firmware Recovery Image", type: "Firmware", purpose: "Restores devices via local flashing or FOTA recovery." },
     ],
     diagnostics: [
