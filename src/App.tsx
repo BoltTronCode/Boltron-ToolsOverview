@@ -1,16 +1,18 @@
 import { useState } from "react";
 import Overview from "./components/Overview";
 import Timeline from "./components/Timeline";
+import Connections from "./components/Connections";
 import Stages from "./components/Stages";
 import ToolCatalog from "./components/ToolCatalog";
 import Platform from "./components/Platform";
 import StageDrawer from "./components/StageDrawer";
 
-type View = "overview" | "timeline" | "stages" | "catalog" | "platform";
+type View = "overview" | "timeline" | "connections" | "stages" | "catalog" | "platform";
 
 const NAV: { key: View; label: string; icon: string }[] = [
   { key: "overview", label: "Overview", icon: "📈" },
   { key: "timeline", label: "Lifecycle Timeline", icon: "🗺️" },
+  { key: "connections", label: "Connections Graph", icon: "🕸️" },
   { key: "stages", label: "Lifecycle Stages", icon: "🔄" },
   { key: "catalog", label: "Tool Catalog", icon: "🧰" },
   { key: "platform", label: "Central Platform", icon: "🛰️" },
@@ -50,6 +52,7 @@ export default function App() {
       <main className="main">
         {view === "overview" && <Overview onOpenStage={setOpenStage} />}
         {view === "timeline" && <Timeline onOpenStage={setOpenStage} />}
+        {view === "connections" && <Connections onOpenStage={setOpenStage} />}
         {view === "stages" && <Stages onOpenStage={setOpenStage} />}
         {view === "catalog" && <ToolCatalog />}
         {view === "platform" && <Platform />}

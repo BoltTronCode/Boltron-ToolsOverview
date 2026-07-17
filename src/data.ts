@@ -15,6 +15,10 @@ export interface Stage {
   tools: Tool[];
   diagnostics: string[];
   output: string;
+  /** true = proposal that needs the user's confirmation (rendered in RED). */
+  toConfirm?: boolean;
+  /** software-company layer that spans the lifecycle rather than a linear step. */
+  crossCutting?: boolean;
 }
 
 export const TOOL_TYPE_META: Record<
@@ -22,20 +26,20 @@ export const TOOL_TYPE_META: Record<
   { color: string; bg: string; icon: string; description: string }
 > = {
   Hardware: {
-    color: "#3b82f6",
-    bg: "rgba(59, 130, 246, 0.14)",
+    color: "#2563eb",
+    bg: "rgba(37, 99, 235, 0.10)",
     icon: "🔧",
     description: "Physical jigs, handhelds, benches, probes and gateways used on the line or in the field.",
   },
   Firmware: {
-    color: "#a855f7",
-    bg: "rgba(168, 85, 247, 0.14)",
+    color: "#7c3aed",
+    bg: "rgba(124, 58, 237, 0.10)",
     icon: "💾",
     description: "Embedded images running on the device or test rigs — dev, production, and FOTA.",
   },
   Software: {
-    color: "#10b981",
-    bg: "rgba(16, 185, 129, 0.14)",
+    color: "#0f9d6b",
+    bg: "rgba(15, 157, 107, 0.10)",
     icon: "🖥️",
     description: "Design suites, planning engines, mobile apps and cloud platforms that orchestrate the lifecycle.",
   },
@@ -49,14 +53,14 @@ export const STAGES: Stage[] = [
     tagline: "The device is engineered, versioned and released for build.",
     icon: "🧬",
     tools: [
-      { name: "Altium Designer", type: "Software", purpose: "Schematic, PCB layout, BOM and Gerber/ODB++ generation." },
-      { name: "Altium 365 / PLM Vault", type: "Software", purpose: "Secure, access-controlled store for all design data." },
-      { name: "TI Code Composer Studio", type: "Software", purpose: "Firmware IDE for the TI MCU/SoC." },
-      { name: "Git Version Control", type: "Software", purpose: "Source control with signed, tagged firmware releases." },
+      { name: "Altium (or equivalent)", type: "Software", purpose: "Schematic, PCB layout, BOM and Gerber/ODB++ generation." },
+      { name: "PLM / Design Vault", type: "Software", purpose: "Secure, access-controlled store for all design data." },
+      { name: "VS Code", type: "Software", purpose: "Primary firmware & software IDE for the team." },
+      { name: "Git Version Control", type: "Software", purpose: "Source control with signed, tagged releases." },
       { name: "CI/CD Firmware Pipeline", type: "Software", purpose: "Automated builds, tests and release artifacts." },
       { name: "JTAG / Debug Probe", type: "Hardware", purpose: "On-chip debug and flashing during bring-up." },
       { name: "Prototype Bring-up Bench", type: "Hardware", purpose: "First-article validation of new hardware revisions." },
-      { name: "Release Firmware Image", type: "Firmware", purpose: "Versioned, signed binary handed to production & FOTA." },
+      { name: "Signed Release Image", type: "Firmware", purpose: "Versioned, signed binary handed to production & FOTA." },
     ],
     diagnostics: [
       "Schematic",
@@ -148,7 +152,7 @@ export const STAGES: Stage[] = [
     id: 5,
     key: "operations",
     name: "Operations & Monitoring",
-    tagline: "Continuous health monitoring with predictive alerting.",
+    tagline: "Continuous health monitoring, comm-status triage and predictive alerting.",
     icon: "📊",
     tools: [
       { name: "Boltron NMS", type: "Software", purpose: "Central network management and monitoring platform." },
@@ -157,6 +161,7 @@ export const STAGES: Stage[] = [
       { name: "MQTT Monitoring", type: "Software", purpose: "Watches broker connectivity and disconnects." },
       { name: "DLMS Monitoring", type: "Software", purpose: "Monitors metering protocol communication." },
       { name: "Device Health Monitoring", type: "Software", purpose: "Aggregates device vitals into a health score." },
+      { name: "Comm-Status Classifier", type: "Software", purpose: "Flags Comm / Non-Comm / Never-Comm devices for dispatch." },
       { name: "FOTA Campaign Manager", type: "Firmware", purpose: "Rolls out signed firmware updates to the fleet." },
     ],
     diagnostics: [
@@ -168,12 +173,12 @@ export const STAGES: Stage[] = [
       "RSRQ",
       "SINR",
       "MQTT Disconnects",
+      "Last-Seen Age",
       "Reboot Count",
-      "Reset Reasons",
       "Memory Usage",
       "Uptime",
     ],
-    output: "Health Score & Predictive Alerts",
+    output: "Health Score, Comm Status & Predictive Alerts",
   },
   {
     id: 6,
@@ -182,8 +187,8 @@ export const STAGES: Stage[] = [
     tagline: "Rapid on-site diagnosis and recovery to reduce repeat visits.",
     icon: "🚚",
     tools: [
-      { name: "RF Service Handheld", type: "Hardware", purpose: "Local RF diagnostics and route validation." },
-      { name: "4G Service Tool", type: "Hardware", purpose: "Cellular validation and troubleshooting." },
+      { name: "RF Service Handheld (HHD)", type: "Hardware", purpose: "Local RF diagnostics and route validation." },
+      { name: "4G Service Tool (HHD)", type: "Hardware", purpose: "Cellular validation and troubleshooting." },
       { name: "Service Gateway", type: "Hardware", purpose: "Portable gateway for field recovery." },
       { name: "Firmware Recovery Image", type: "Firmware", purpose: "Restores devices via local flashing or FOTA recovery." },
     ],
@@ -215,6 +220,58 @@ export const STAGES: Stage[] = [
     ],
     output: "Warranty Closure Report",
   },
+  {
+    id: 8,
+    key: "integration",
+    name: "Customer Integration & SDK",
+    tagline: "How customers consume our firmware — SDK, samples, sandbox and docs.",
+    icon: "🔌",
+    toConfirm: true,
+    crossCutting: true,
+    tools: [
+      { name: "Public GitHub Repository", type: "Software", purpose: "Hosts the SDK, examples, issues and versioned releases." },
+      { name: "Device SDK (C / Python)", type: "Software", purpose: "Typed client + HAL so customers build on our firmware." },
+      { name: "Hosted Sandbox Environment", type: "Software", purpose: "Try integrations against a virtual device with no hardware." },
+      { name: "Reference App & Code Samples", type: "Software", purpose: "Copy-paste starting points for common use cases." },
+      { name: "API Docs + Postman Collection", type: "Software", purpose: "Protocol/API reference customers can run instantly." },
+      { name: "Firmware Integration Guide", type: "Firmware", purpose: "Step-by-step to flash, pair and extend our firmware." },
+    ],
+    diagnostics: [
+      "Versioned SDK Packages",
+      "Reference Application",
+      "Code Samples",
+      "API / Postman Collection",
+      "Onboarding Guide",
+      "Changelog & Release Notes",
+      "Semantic Version Tags",
+      "Compatibility Matrix",
+    ],
+    output: "Customer Integration Kit",
+  },
+  {
+    id: 9,
+    key: "knowledge",
+    name: "Knowledge Base & Support",
+    tagline: "Self-serve answers, FAQ builder and query intake for customers.",
+    icon: "📚",
+    crossCutting: true,
+    tools: [
+      { name: "Knowledge Base Portal", type: "Software", purpose: "Searchable articles, guides and troubleshooting." },
+      { name: "FAQ Builder", type: "Software", purpose: "Turns recurring queries into curated FAQs." },
+      { name: "Customer Query / Ticket Portal", type: "Software", purpose: "Intake for questions and issues, routed to Jira." },
+      { name: "Docs Site", type: "Software", purpose: "Versioned product & SDK documentation." },
+      { name: "Community / Forum", type: "Software", purpose: "Peer support and public Q&A." },
+    ],
+    diagnostics: [
+      "FAQs",
+      "How-to Articles",
+      "Troubleshooting Guides",
+      "Known Issues",
+      "Release Notes",
+      "Query Analytics & Deflection Rate",
+    ],
+    output: "Self-Serve Support & Deflection",
+  },
 ];
 
 /* ------------------------------------------------------------------ */
@@ -223,12 +280,18 @@ export const STAGES: Stage[] = [
 
 export type LaneKey = "hardware" | "firmware" | "software" | "artifacts" | "loop";
 
+export interface LaneItem {
+  label: string;
+  /** rendered in RED — a proposal awaiting your confirmation. */
+  red?: boolean;
+}
+
 export const LANES: { key: LaneKey; name: string; icon: string; color: string; bg: string }[] = [
-  { key: "hardware", name: "Hardware", icon: "🔧", color: "#3b82f6", bg: "rgba(59,130,246,0.12)" },
-  { key: "firmware", name: "Firmware", icon: "💾", color: "#a855f7", bg: "rgba(168,85,247,0.12)" },
-  { key: "software", name: "Software & Cloud", icon: "🖥️", color: "#10b981", bg: "rgba(16,185,129,0.12)" },
-  { key: "artifacts", name: "Artifacts & Data", icon: "🗄️", color: "#f59e0b", bg: "rgba(245,158,11,0.12)" },
-  { key: "loop", name: "Feedback & Quality", icon: "🔁", color: "#f43f5e", bg: "rgba(244,63,94,0.12)" },
+  { key: "hardware", name: "Hardware", icon: "🔧", color: "#2563eb", bg: "rgba(37,99,235,0.08)" },
+  { key: "firmware", name: "Firmware", icon: "💾", color: "#7c3aed", bg: "rgba(124,58,237,0.08)" },
+  { key: "software", name: "Software & Cloud", icon: "🖥️", color: "#0f9d6b", bg: "rgba(15,157,107,0.08)" },
+  { key: "artifacts", name: "Artifacts & Data", icon: "🗄️", color: "#d97706", bg: "rgba(217,119,6,0.08)" },
+  { key: "loop", name: "Feedback & Quality", icon: "🔁", color: "#dc2626", bg: "rgba(220,38,38,0.08)" },
 ];
 
 export interface Phase {
@@ -237,8 +300,13 @@ export interface Phase {
   name: string;
   icon: string;
   output: string;
-  lanes: Record<LaneKey, string[]>;
+  toConfirm?: boolean;
+  crossCutting?: boolean;
+  lanes: Record<LaneKey, LaneItem[]>;
 }
+
+const t = (label: string): LaneItem => ({ label });
+const r = (label: string): LaneItem => ({ label, red: true });
 
 export const PHASES: Phase[] = [
   {
@@ -248,11 +316,11 @@ export const PHASES: Phase[] = [
     icon: "🧬",
     output: "Released Design Package",
     lanes: {
-      hardware: ["Altium schematic + PCB", "BOM / Gerber / ODB++", "JTAG debug probe", "Prototype bring-up bench"],
-      firmware: ["TI Code Composer Studio", "Git version control", "CI/CD build pipeline", "Signed release image"],
-      software: ["Requirements / PLM", "Cloud API contracts", "Design reviews"],
-      artifacts: ["Schematic, PCB, BOM, Gerber", "Firmware source + signed binary", "→ Secure PLM Vault (RBAC, audit)"],
-      loop: ["ECR / ECO change control", "Issue tracker (bug intake)", "Field fixes land here"],
+      hardware: [t("Altium (or equivalent)"), t("BOM / Gerber / ODB++"), t("JTAG debug probe"), t("Prototype bring-up bench")],
+      firmware: [t("VS Code"), t("Git version control"), t("CI/CD build pipeline"), t("Signed release image")],
+      software: [t("Requirements / PLM"), t("Cloud API contracts"), r("AI coding tool (to lock)")],
+      artifacts: [t("Schematic, PCB, BOM, Gerber"), t("Firmware source + signed binary"), t("→ Secure PLM Vault (RBAC, audit)")],
+      loop: [t("Jira: ECR / ECO change control"), t("Field fixes land here")],
     },
   },
   {
@@ -262,11 +330,11 @@ export const PHASES: Phase[] = [
     icon: "🏭",
     output: "Device Birth Certificate",
     lanes: {
-      hardware: ["Flash & Provisioning jig", "Functional test jig", "RF validation jig"],
-      firmware: ["Production test firmware", "Flash released image"],
-      software: ["Manufacturing test software (MES)", "Device serialization utility"],
-      artifacts: ["FW/HW version, MAC, IMEI, ICCID", "RF calibration, batch, test results"],
-      loop: ["Yield & first-pass tracking", "Batch failure analytics", "Systematic defect → Design"],
+      hardware: [t("Flash & Provisioning jig"), t("Functional test jig"), t("RF validation jig")],
+      firmware: [t("Production test firmware"), t("Flash released image")],
+      software: [t("Manufacturing test software (MES)"), t("Device serialization utility")],
+      artifacts: [t("FW/HW version, MAC, IMEI, ICCID"), t("RF calibration, batch, test results")],
+      loop: [t("Yield & first-pass tracking"), t("Batch analytics → Jira → Design")],
     },
   },
   {
@@ -276,11 +344,11 @@ export const PHASES: Phase[] = [
     icon: "📡",
     output: "Site Readiness Report",
     lanes: {
-      hardware: ["GPS RF survey handheld", "GPS cellular survey handheld"],
-      firmware: ["Survey device firmware"],
-      software: ["RF network planning software", "Coverage prediction engine"],
-      artifacts: ["GPS, noise floor, occupancy", "RSSI/RSRP/RSRQ/SINR, operator"],
-      loop: ["Weak site → re-plan / defer"],
+      hardware: [t("GPS RF survey handheld"), t("GPS cellular survey handheld")],
+      firmware: [t("Survey device firmware")],
+      software: [t("RF network planning software"), t("Coverage prediction engine")],
+      artifacts: [t("GPS, noise floor, occupancy"), t("RSSI/RSRP/RSRQ/SINR, operator")],
+      loop: [t("Weak site → re-plan / defer")],
     },
   },
   {
@@ -290,11 +358,11 @@ export const PHASES: Phase[] = [
     icon: "🛠️",
     output: "Installation Certificate",
     lanes: {
-      hardware: ["RF network checker handheld", "RF master handheld gateway"],
-      firmware: ["Commissioning / join stack"],
-      software: ["Installer mobile application"],
-      artifacts: ["Meter/NIC ID, GPS, photos", "RF join, parent, hop, cellular, MQTT"],
-      loop: ["Commissioning fail → on-site fix", "Config / parent re-selection"],
+      hardware: [t("RF network checker handheld"), t("RF master handheld gateway")],
+      firmware: [t("Commissioning / join stack")],
+      software: [t("Installer mobile application")],
+      artifacts: [t("Meter/NIC ID, GPS, photos"), t("RF join, parent, hop, cellular, MQTT")],
+      loop: [t("Commissioning fail → on-site fix"), t("Config / parent re-selection")],
     },
   },
   {
@@ -302,13 +370,13 @@ export const PHASES: Phase[] = [
     short: "Operate",
     name: "Operations & Monitoring",
     icon: "📊",
-    output: "Health Score & Predictive Alerts",
+    output: "Health, Comm Status & Alerts",
     lanes: {
-      hardware: ["Deployed gateways / DCUs"],
-      firmware: ["Firmware version tracking", "FOTA campaign manager"],
-      software: ["Boltron NMS", "RF / cellular / MQTT / DLMS", "Device health monitoring"],
-      artifacts: ["RSSI, ETX, neighbors, hop", "Reboots, resets, memory, uptime"],
-      loop: ["Predictive alert → dispatch", "Anomaly pattern → RCA → fix"],
+      hardware: [t("Deployed gateways / DCUs"), t("HHD dispatch for Non/Never-Comm")],
+      firmware: [t("Firmware version tracking"), t("FOTA campaign manager")],
+      software: [t("Boltron NMS"), t("RF / cellular / MQTT / DLMS"), t("Comm-status classifier")],
+      artifacts: [t("RSSI, ETX, neighbors, hop"), t("Last-seen age, reboots, uptime")],
+      loop: [t("Predictive alert → dispatch"), t("Anomaly → RCA → Jira → fix")],
     },
   },
   {
@@ -318,11 +386,11 @@ export const PHASES: Phase[] = [
     icon: "🚚",
     output: "Field Service Report",
     lanes: {
-      hardware: ["RF service handheld", "4G service tool", "Service gateway"],
-      firmware: ["Firmware recovery", "FOTA recovery"],
-      software: ["On-site diagnostics app"],
-      artifacts: ["Device & connectivity logs", "RF route, cellular history, signatures"],
-      loop: ["Unresolved → return to depot", "Failure signature → RCA"],
+      hardware: [t("RF service handheld (HHD)"), t("4G service tool (HHD)"), t("Service gateway")],
+      firmware: [t("Firmware recovery"), t("FOTA recovery")],
+      software: [t("On-site diagnostics app")],
+      artifacts: [t("Device & connectivity logs"), t("RF route, cellular history, signatures")],
+      loop: [t("Unresolved → return to depot"), t("Failure signature → Jira / RCA")],
     },
   },
   {
@@ -332,37 +400,171 @@ export const PHASES: Phase[] = [
     icon: "🧰",
     output: "Warranty Closure Report",
     lanes: {
-      hardware: ["Service center test jig", "RF validation bench", "Cellular validation bench"],
-      firmware: ["Reflash / refurbish image"],
-      software: ["RMA / warranty system"],
-      artifacts: ["Failure class, root cause", "Repair actions, replacement history"],
-      loop: ["Root cause → vendor/batch analytics", "Corrective action → Design"],
+      hardware: [t("Service center test jig"), t("RF validation bench"), t("Cellular validation bench")],
+      firmware: [t("Reflash / refurbish image")],
+      software: [t("RMA / warranty system")],
+      artifacts: [t("Failure class, root cause"), t("Repair actions, replacement history")],
+      loop: [t("Root cause → vendor/batch analytics"), t("Corrective action → Jira → Design")],
+    },
+  },
+  {
+    id: 8,
+    short: "Integration",
+    name: "Customer Integration & SDK",
+    icon: "🔌",
+    output: "Customer Integration Kit",
+    toConfirm: true,
+    crossCutting: true,
+    lanes: {
+      hardware: [],
+      firmware: [r("Firmware integration guide"), r("HAL / driver layer")],
+      software: [r("Public GitHub repo"), r("Device SDK (C / Python)"), r("Hosted sandbox"), r("Reference app + samples"), r("API docs + Postman")],
+      artifacts: [r("Versioned SDK releases"), r("Changelog / release notes"), r("Compatibility matrix")],
+      loop: [r("Customer issues / PRs → Jira")],
+    },
+  },
+  {
+    id: 9,
+    short: "Knowledge",
+    name: "Knowledge Base & Support",
+    icon: "📚",
+    crossCutting: true,
+    output: "Self-Serve Support & Deflection",
+    lanes: {
+      hardware: [],
+      firmware: [],
+      software: [t("KB portal"), t("FAQ builder"), t("Ticket portal"), t("Docs site")],
+      artifacts: [t("FAQs, how-to, guides"), t("Known issues, release notes")],
+      loop: [t("Query → Jira / RCA"), t("Deflection analytics")],
     },
   },
 ];
 
 // The master closed loop: how a field bug travels back to engineering and re-deploys.
 export const FEEDBACK_LOOP: { icon: string; title: string; detail: string }[] = [
-  { icon: "🚨", title: "Failure Signature", detail: "Field / warranty defect captured with logs & context." },
+  { icon: "🚨", title: "Failure Signature", detail: "Field / warranty / customer defect captured with logs & context." },
   { icon: "🔍", title: "Root Cause Analysis", detail: "NMS analytics + bench correlate the failure." },
-  { icon: "📝", title: "ECR / ECO", detail: "Change request raised in the issue tracker." },
-  { icon: "🧬", title: "Engineering Fix", detail: "Altium / TI change → new signed version in Git." },
+  { icon: "📋", title: "Jira Issue (ECR/ECO)", detail: "Typed HW/FW/SW issue raised & triaged for a release." },
+  { icon: "🧬", title: "Engineering Fix", detail: "Altium / VS Code change → new signed version in Git." },
   { icon: "✅", title: "Validation", detail: "CI + bench regression before release." },
-  { icon: "🚀", title: "Deploy", detail: "FOTA to fleet + updated production line." },
+  { icon: "🚀", title: "Deploy", detail: "FOTA to fleet + updated production line + SDK release." },
 ];
 
 // How design data is stored and how the delivery / NPI team consumes it.
 export const DESIGN_GOVERNANCE = {
   storage: [
-    "All design data (schematic, PCB, BOM, Gerber, firmware source & binaries) lives in a secure PLM vault (e.g. Altium 365 + Git) with role-based access and full audit history.",
+    "All design data (schematic, PCB, BOM, Gerber, firmware source & binaries) lives in a secure PLM vault (Altium 365 / Git + artifact registry) with role-based access and full audit history.",
     "Firmware releases are signed and tagged; only immutable, versioned artifacts leave engineering.",
   ],
   delivery: [
     "The delivery / NPI team pulls a specific released, version-tagged package for prototype and production runs — never raw working files.",
-    "Any change flows through ECR → ECO change control, keeping production and the field on known-good versions.",
-    "Queries are raised against the exact part + version in the issue tracker, linking manufacturing and field feedback straight back to the owning engineer.",
+    "Any change flows through Jira ECR → ECO change control, keeping production and the field on known-good versions.",
+    "Queries are raised against the exact part + version, linking manufacturing and field feedback straight back to the owning engineer.",
   ],
 };
+
+/* ------------------------------------------------------------------ */
+/*  RED — decisions that need your confirmation                        */
+/* ------------------------------------------------------------------ */
+
+export interface Decision {
+  id: string;
+  title: string;
+  question: string;
+  options: { name: string; note: string; recommended?: boolean }[];
+  recommendation: string;
+}
+
+export const DECISIONS: Decision[] = [
+  {
+    id: "ai-tool",
+    title: "Lock our AI coding tool",
+    question: "Which AI tool do we standardize on across engineering?",
+    options: [
+      { name: "Devin (Cognition)", note: "Autonomous end-to-end tasks, PRs & CI — best for offloading whole tickets.", recommended: true },
+      { name: "Cursor", note: "AI-native IDE for fast inline edits and refactors." },
+      { name: "GitHub Copilot", note: "Inline completions inside VS Code." },
+      { name: "Claude Code", note: "Terminal-based agentic coding." },
+    ],
+    recommendation:
+      "Standardize the editor on VS Code and lock one agent for autonomous work (recommend Devin) + one inline assistant (Copilot/Cursor). Confirm the combination to lock.",
+  },
+  {
+    id: "customer-integration",
+    title: "Customer Integration approach",
+    question: "How do customers consume our firmware?",
+    options: [
+      { name: "Public GitHub + SDK", note: "Repo with SDK (C/Python), samples, issues & tagged releases.", recommended: true },
+      { name: "Hosted Sandbox", note: "Virtual-device sandbox so they integrate with no hardware." },
+      { name: "API Docs + Postman", note: "Runnable protocol/API reference." },
+      { name: "Private partner portal", note: "Gated access for select integrators." },
+    ],
+    recommendation:
+      "As a software company: ship a public GitHub SDK (C/Python) + reference app + Postman + a hosted sandbox + an onboarding guide, all semantically versioned. Confirm scope & access model.",
+  },
+];
+
+/* ------------------------------------------------------------------ */
+/*  Jira — issue tracking & release planning                           */
+/* ------------------------------------------------------------------ */
+
+export const JIRA_ISSUE_TYPES = [
+  { tag: "HW", name: "Hardware Bug", source: "PDI / bench / field", color: "#2563eb" },
+  { tag: "FW", name: "Firmware Bug", source: "NMS / field / customer", color: "#7c3aed" },
+  { tag: "SW", name: "Software / Cloud Bug", source: "NMS / apps / SDK", color: "#0f9d6b" },
+  { tag: "INC", name: "Field Incident", source: "Service & warranty", color: "#dc2626" },
+  { tag: "ECO", name: "Change Request / ECO", source: "Any stage", color: "#d97706" },
+  { tag: "REL", name: "Release / Epic", source: "Release planning", color: "#0891b2" },
+];
+
+export const RELEASE_PLAN =
+  "Issues are typed (HW/FW/SW/INC), triaged into a release/epic, gated by CI + bench validation, then shipped as a signed FOTA campaign and an SDK release — with the fix version traced back onto every affected device.";
+
+/* ------------------------------------------------------------------ */
+/*  Operations — device communication status                           */
+/* ------------------------------------------------------------------ */
+
+export const DEVICE_COMM = [
+  {
+    status: "Comm",
+    count: "1,240,180",
+    color: "#0f9d6b",
+    how: "Recent telemetry / heartbeat within the SLA window.",
+    tool: "No action — monitored in NMS",
+  },
+  {
+    status: "Non-Comm",
+    count: "38,420",
+    color: "#d97706",
+    how: "Was reporting, now silent — NMS last-seen age exceeds threshold.",
+    tool: "Dispatch RF Service / 4G Service Handheld (HHD)",
+  },
+  {
+    status: "Never-Comm",
+    count: "5,930",
+    color: "#dc2626",
+    how: "Birth certificate exists but zero telemetry since install.",
+    tool: "RF Network Checker HHD → re-commission / RMA",
+  },
+];
+
+/* ------------------------------------------------------------------ */
+/*  Connections graph                                                  */
+/* ------------------------------------------------------------------ */
+
+// feedback edges (RED) between stage keys
+export const FEEDBACK_EDGES: [string, string][] = [
+  ["manufacturing", "design"],
+  ["operations", "design"],
+  ["warranty", "design"],
+  ["field-service", "warranty"],
+  ["operations", "field-service"],
+  ["integration", "design"],
+  ["knowledge", "design"],
+];
+
+// Jira hub connects to these stage keys
+export const JIRA_LINKS = ["design", "manufacturing", "field-service", "warranty", "integration", "knowledge"];
 
 export const CENTRAL_PLATFORM = {
   name: "Boltron Hardware Lifecycle Management Platform",
@@ -371,8 +573,8 @@ export const CENTRAL_PLATFORM = {
     "Manufacturing History",
     "Installation History",
     "Connectivity History",
-    "Service History",
-    "Warranty History",
+    "Service & Warranty History",
+    "Integration & Support History",
   ],
   provides: [
     "Digital Device Passport",

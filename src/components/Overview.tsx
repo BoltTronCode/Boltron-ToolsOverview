@@ -43,7 +43,7 @@ export default function Overview({ onOpenStage }: { onOpenStage: (id: number) =>
 
       <div className="card" style={{ marginBottom: 22 }}>
         <h3 className="section-title">Device Lifecycle</h3>
-        <p className="section-sub">Seven connected stages — click any stage to inspect its tooling.</p>
+        <p className="section-sub">Nine connected stages — click any stage to inspect its tooling.</p>
         <div className="flow">
           {STAGES.map((s) => (
             <div className="flow-step" key={s.id} onClick={() => onOpenStage(s.id)}>

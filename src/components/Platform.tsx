@@ -15,7 +15,7 @@ export default function Platform() {
         <div style={{ fontSize: 34 }}>🛰️</div>
         <h2>{CENTRAL_PLATFORM.name}</h2>
         <p style={{ color: "var(--text-dim)", margin: 0 }}>
-          Manufacturing → Installation → Monitoring → Service → Repair → Warranty
+          Design → Manufacturing → Install → Monitoring → Service → Warranty → Integration
         </p>
       </div>
 

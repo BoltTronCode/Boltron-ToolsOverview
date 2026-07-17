@@ -1,4 +1,15 @@
-import { LANES, PHASES, FEEDBACK_LOOP, DESIGN_GOVERNANCE, type LaneKey } from "../data";
+import {
+  LANES,
+  PHASES,
+  FEEDBACK_LOOP,
+  DESIGN_GOVERNANCE,
+  DECISIONS,
+  JIRA_ISSUE_TYPES,
+  RELEASE_PLAN,
+  DEVICE_COMM,
+  type LaneKey,
+  type LaneItem,
+} from "../data";
 
 export default function Timeline({ onOpenStage }: { onOpenStage: (id: number) => void }) {
   return (
@@ -6,11 +17,27 @@ export default function Timeline({ onOpenStage }: { onOpenStage: (id: number) =>
       <div className="page-head">
         <h1 className="page-title">Lifecycle Timeline — 360° Map</h1>
         <p className="page-desc">
-          The full journey of a device, discipline by discipline — from Altium/TI engineering
-          through manufacturing, deployment and warranty. Read left→right for the timeline; read
-          top→bottom for who owns each phase. The red lane shows where problems are caught and how
-          fixes reconnect to engineering.
+          The full journey of a device, discipline by discipline — from Altium/VS Code engineering
+          through manufacturing, deployment, warranty and customer integration. Read left→right for
+          the timeline; top→bottom for who owns each phase. The red lane shows where problems are
+          caught and how fixes reconnect to engineering.
         </p>
+      </div>
+
+      {/* Legend */}
+      <div className="card" style={{ marginBottom: 20 }}>
+        <div className="legend">
+          {LANES.map((l) => (
+            <span className="legend-item" key={l.key}>
+              <span className="legend-swatch" style={{ background: l.bg, borderColor: l.color }} />
+              {l.icon} {l.name}
+            </span>
+          ))}
+          <span className="legend-item">
+            <span className="legend-swatch red" /> RED = needs your confirmation
+          </span>
+          <span className="legend-item">◇ dashed = cross-cutting (software-company) layer</span>
+        </div>
       </div>
 
       {/* Phase ribbon */}
@@ -23,6 +50,8 @@ export default function Timeline({ onOpenStage }: { onOpenStage: (id: number) =>
               <div className="ribbon-num">PHASE {p.id}</div>
               <div className="ribbon-name">{p.short}</div>
               {i === 0 && <div className="ribbon-start">START</div>}
+              {p.toConfirm && <div className="head-tag red">CONFIRM</div>}
+              {p.crossCutting && !p.toConfirm && <div className="head-tag cross">CROSS-CUT</div>}
             </div>
           ))}
         </div>
@@ -36,23 +65,29 @@ export default function Timeline({ onOpenStage }: { onOpenStage: (id: number) =>
           Click a phase header for full detail.
         </p>
         <div className="swimlane-scroll">
-          <div className="swimlane" style={{ gridTemplateColumns: `160px repeat(${PHASES.length}, minmax(150px, 1fr))` }}>
-            {/* header row */}
+          <div
+            className="swimlane"
+            style={{ gridTemplateColumns: `150px repeat(${PHASES.length}, minmax(150px, 1fr))` }}
+          >
             <div className="sw-corner">Discipline ▸ Phase</div>
             {PHASES.map((p) => (
-              <button className="sw-head" key={p.id} onClick={() => onOpenStage(p.id)}>
+              <button
+                className={`sw-head ${p.toConfirm ? "red" : p.crossCutting ? "cross" : ""}`}
+                key={p.id}
+                onClick={() => onOpenStage(p.id)}
+              >
                 <span className="sw-head-icon">{p.icon}</span>
                 <span className="sw-head-name">{p.short}</span>
+                {p.toConfirm && <span className="head-tag red">CONFIRM</span>}
+                {p.crossCutting && !p.toConfirm && <span className="head-tag cross">CROSS-CUT</span>}
               </button>
             ))}
 
-            {/* lane rows */}
             {LANES.map((lane) => (
-              <RowFragment key={lane.key} laneKey={lane.key} laneName={lane.name} laneIcon={lane.icon} color={lane.color} bg={lane.bg} />
+              <LaneRow key={lane.key} laneKey={lane.key} name={lane.name} icon={lane.icon} color={lane.color} bg={lane.bg} />
             ))}
 
-            {/* output row */}
-            <div className="sw-lane" style={{ background: "rgba(79,140,255,0.12)" }}>
+            <div className="sw-lane" style={{ background: "rgba(37,99,235,0.10)" }}>
               <span className="sw-lane-icon">📄</span>
               <span>Output</span>
             </div>
@@ -65,12 +100,41 @@ export default function Timeline({ onOpenStage }: { onOpenStage: (id: number) =>
         </div>
       </div>
 
+      {/* RED decisions */}
+      <div className="card" style={{ marginTop: 20 }}>
+        <h3 className="section-title">Decisions that need your confirmation (RED)</h3>
+        <div className="decision-banner">🔴 These are proposals — please confirm or adjust before we lock them in.</div>
+        <div className="two-col">
+          {DECISIONS.map((d) => (
+            <div className="decision-card" key={d.id}>
+              <div className="decision-head">
+                <span className="decision-badge">TO CONFIRM</span>
+                <span className="decision-title">{d.title}</span>
+              </div>
+              <div className="decision-q">{d.question}</div>
+              <div className="decision-opts">
+                {d.options.map((o) => (
+                  <div className={`decision-opt ${o.recommended ? "recommended" : ""}`} key={o.name}>
+                    <div className="decision-opt-name">
+                      {o.name}
+                      {o.recommended && <span className="rec-pill">PICK</span>}
+                    </div>
+                    <div className="decision-opt-note">{o.note}</div>
+                  </div>
+                ))}
+              </div>
+              <div className="decision-rec">💡 {d.recommendation}</div>
+            </div>
+          ))}
+        </div>
+      </div>
+
       {/* Master feedback loop */}
       <div className="card" style={{ marginTop: 20 }}>
         <h3 className="section-title">Closed-Loop: where bugs go & how fixes come back</h3>
         <p className="section-sub">
-          A field or warranty failure never dead-ends — it routes to engineering and redeploys to
-          the whole fleet.
+          A field, warranty or customer failure never dead-ends — every issue is typed in Jira,
+          fixed, validated, and redeployed to the whole fleet + SDK.
         </p>
         <div className="loop">
           {FEEDBACK_LOOP.map((s, i) => (
@@ -81,7 +145,47 @@ export default function Timeline({ onOpenStage }: { onOpenStage: (id: number) =>
               {i < FEEDBACK_LOOP.length - 1 && <div className="loop-arrow">→</div>}
             </div>
           ))}
-          <div className="loop-return">⟲ redeploys across the fleet & production line</div>
+          <div className="loop-return">⟲ redeploys across the fleet, production line & SDK release</div>
+        </div>
+      </div>
+
+      {/* Jira */}
+      <div className="card" style={{ marginTop: 20 }}>
+        <h3 className="section-title">📋 Issue Tracking & Release Planning (Jira)</h3>
+        <p className="section-sub">
+          Every hardware, firmware and software problem is a typed Jira issue — triaged into a
+          release and traced back onto every affected device.
+        </p>
+        <div className="jira-grid">
+          {JIRA_ISSUE_TYPES.map((j) => (
+            <div className="jira-type" key={j.tag}>
+              <span className="jira-tag" style={{ background: j.color }}>{j.tag}</span>
+              <div>
+                <div className="jira-name">{j.name}</div>
+                <div className="jira-source">from {j.source}</div>
+              </div>
+            </div>
+          ))}
+        </div>
+        <div className="decision-rec" style={{ borderLeftColor: "var(--accent)" }}>🗺️ {RELEASE_PLAN}</div>
+      </div>
+
+      {/* Device comm status */}
+      <div className="card" style={{ marginTop: 20 }}>
+        <h3 className="section-title">📡 Operations: Device Communication Status</h3>
+        <p className="section-sub">
+          How we know which devices need a handheld (HHD) field visit — and which tool to send.
+          Counts are illustrative demo data.
+        </p>
+        <div className="comm-grid">
+          {DEVICE_COMM.map((c) => (
+            <div className="comm-card" key={c.status} style={{ borderTopColor: c.color }}>
+              <div className="comm-status" style={{ color: c.color }}>{c.status}</div>
+              <div className="comm-count" style={{ color: c.color }}>{c.count}</div>
+              <div className="comm-how">{c.how}</div>
+              <div className="comm-tool">🧰 {c.tool}</div>
+            </div>
+          ))}
         </div>
       </div>
 
@@ -110,37 +214,37 @@ export default function Timeline({ onOpenStage }: { onOpenStage: (id: number) =>
   );
 }
 
-function RowFragment({
+function LaneRow({
   laneKey,
-  laneName,
-  laneIcon,
+  name,
+  icon,
   color,
   bg,
 }: {
   laneKey: LaneKey;
-  laneName: string;
-  laneIcon: string;
+  name: string;
+  icon: string;
   color: string;
   bg: string;
 }) {
   return (
     <>
       <div className="sw-lane" style={{ background: bg, color }}>
-        <span className="sw-lane-icon">{laneIcon}</span>
-        <span>{laneName}</span>
+        <span className="sw-lane-icon">{icon}</span>
+        <span>{name}</span>
       </div>
       {PHASES.map((p) => (
         <div className="sw-cell" key={`${laneKey}-${p.id}`}>
           {p.lanes[laneKey].length === 0 ? (
             <span className="sw-empty">—</span>
           ) : (
-            p.lanes[laneKey].map((item) => (
+            p.lanes[laneKey].map((item: LaneItem) => (
               <span
-                className={`sw-chip ${laneKey === "loop" ? "loop-chip" : ""}`}
-                key={item}
-                style={laneKey === "loop" ? undefined : { borderColor: color }}
+                className={`sw-chip ${item.red ? "red" : laneKey === "loop" ? "loop-chip" : ""}`}
+                key={item.label}
+                style={item.red || laneKey === "loop" ? undefined : { borderColor: color }}
               >
-                {item}
+                {item.label}
               </span>
             ))
           )}
