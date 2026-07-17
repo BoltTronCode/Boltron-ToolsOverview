@@ -22,3 +22,7 @@ dist-ssr
 *.njsproj
 *.sln
 *.sw?
+
+# portable/single-file builds
+dist-single
+dist-portable
