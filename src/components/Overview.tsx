@@ -23,7 +23,7 @@ export default function Overview({ onOpenStage }: { onOpenStage: (id: number) =>
       <div className="page-head">
         <h1 className="page-title">Executive Overview</h1>
         <p className="page-desc">
-          End-to-end visibility across the device lifecycle — from manufacturing to warranty
+          End-to-end visibility across the device lifecycle — from product design to warranty
           closure. Every device carries a digital passport built from the tools, firmware and
           software below.
         </p>
@@ -43,7 +43,7 @@ export default function Overview({ onOpenStage }: { onOpenStage: (id: number) =>
 
       <div className="card" style={{ marginBottom: 22 }}>
         <h3 className="section-title">Device Lifecycle</h3>
-        <p className="section-sub">Six connected stages — click any stage to inspect its tooling.</p>
+        <p className="section-sub">Seven connected stages — click any stage to inspect its tooling.</p>
         <div className="flow">
           {STAGES.map((s) => (
             <div className="flow-step" key={s.id} onClick={() => onOpenStage(s.id)}>
