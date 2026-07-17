@@ -49,10 +49,10 @@ export default function Overview({ onOpenStage }: { onOpenStage: (id: number) =>
       </div>
 
       <div className="card" style={{ marginBottom: 22 }}>
-        <h3 className="section-title">Board / CxO Scorecard</h3>
+        <h3 className="section-title">Fleet Performance & Cost Scorecard</h3>
         <p className="section-sub">
-          The critical numbers for the board — cost, reliability and efficiency of the whole fleet.
-          Deltas are vs last quarter. Values are illustrative demo data.
+          The critical numbers at a glance — cost, reliability and efficiency of the whole fleet.
+          Deltas are vs last quarter. Values are illustrative demo data (INR).
         </p>
         {BOARD_GROUPS.map((g) => (
           <div className="board-group" key={g.key}>

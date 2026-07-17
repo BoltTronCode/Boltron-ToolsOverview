@@ -9,6 +9,8 @@ import {
   DEVICE_COMM,
   DOCUMENTATION,
   FIELD_MATRIX,
+  OBSTRUCTION_DETECTION,
+  OBSTRUCTION_NOTE,
   type LaneKey,
   type LaneItem,
 } from "../data";
@@ -189,6 +191,31 @@ export default function Timeline({ onOpenStage }: { onOpenStage: (id: number) =>
             </div>
           ))}
         </div>
+      </div>
+
+      {/* Obstruction & environment detection (RED) */}
+      <div className="card decision-card-red" style={{ marginTop: 20 }}>
+        <div className="decision-head">
+          <span className="decision-badge">TO CONFIRM</span>
+          <h3 className="section-title" style={{ margin: 0 }}>
+            🚧 Obstruction & Environment Detection — Survey & Field Service
+          </h3>
+        </div>
+        <p className="section-sub">
+          How we detect big / steady obstacles (high-rise buildings, heavy trees, ground / basement
+          meters) and the recommended device for each. Proposed — please confirm.
+        </p>
+        <div className="obst-grid">
+          {OBSTRUCTION_DETECTION.map((o) => (
+            <div className="obst-card" key={o.obstacle}>
+              <div className="obst-title">{o.obstacle}</div>
+              <div className="obst-risk">⚠️ {o.risk}</div>
+              <div className="obst-row"><span className="obst-k">Detect</span><span>{o.detect}</span></div>
+              <div className="obst-row"><span className="obst-k">Device</span><span className="obst-device">{o.device}</span></div>
+            </div>
+          ))}
+        </div>
+        <div className="decision-rec">📍 {OBSTRUCTION_NOTE}</div>
       </div>
 
       {/* What runs where */}

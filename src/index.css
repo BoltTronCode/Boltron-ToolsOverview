@@ -1231,6 +1231,65 @@ body {
   margin: 2px 0 6px;
 }
 
+/* Obstruction & environment detection (RED) */
+.decision-card-red {
+  border: 1.5px solid rgba(220, 38, 38, 0.55);
+  background: linear-gradient(180deg, rgba(220, 38, 38, 0.05), var(--bg-card) 60%);
+}
+
+.obst-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+  gap: 12px;
+  margin-top: 12px;
+  margin-bottom: 12px;
+}
+
+.obst-card {
+  border: 1px solid rgba(220, 38, 38, 0.25);
+  border-left: 3px solid var(--bad);
+  border-radius: 12px;
+  background: var(--bg-card);
+  padding: 14px 16px;
+}
+
+.obst-title {
+  font-size: 13.5px;
+  font-weight: 800;
+  color: var(--bad);
+}
+
+.obst-risk {
+  font-size: 11.5px;
+  color: var(--text-dim);
+  margin: 6px 0 10px;
+  line-height: 1.4;
+}
+
+.obst-row {
+  display: grid;
+  grid-template-columns: 62px 1fr;
+  gap: 8px;
+  font-size: 11.5px;
+  color: var(--text-dim);
+  line-height: 1.4;
+  margin-top: 6px;
+}
+
+.obst-k {
+  font-weight: 800;
+  font-size: 9.5px;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+  color: var(--text-muted);
+  padding-top: 1px;
+}
+
+.obst-device {
+  color: var(--accent);
+  font-weight: 600;
+}
+
 /* What-runs-where matrix */
 .matrix {
   display: flex;

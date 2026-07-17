@@ -347,10 +347,10 @@ export const PHASES: Phase[] = [
     icon: "📡",
     output: "Site Readiness Report",
     lanes: {
-      hardware: [t("GPS RF survey handheld"), t("GPS cellular survey handheld")],
+      hardware: [t("GPS RF survey handheld"), t("GPS cellular survey handheld"), r("Obstruction scanner: LiDAR + AI camera")],
       firmware: [t("Survey device firmware")],
       software: [t("RF network planning software"), t("Coverage prediction engine")],
-      artifacts: [t("GPS, noise floor, occupancy"), t("RSSI/RSRP/RSRQ/SINR, operator")],
+      artifacts: [t("GPS, noise floor, occupancy"), t("RSSI/RSRP/RSRQ/SINR, operator"), r("Obstruction Profile (geo-tagged)")],
       docs: [t("Internal: survey SOP"), t("Site Readiness Report")],
       loop: [t("Weak site → re-plan / defer")],
     },
@@ -392,7 +392,7 @@ export const PHASES: Phase[] = [
     icon: "🚚",
     output: "Field Service Report",
     lanes: {
-      hardware: [t("RF service handheld (HHD)"), t("4G service tool (HHD)"), t("Service gateway")],
+      hardware: [t("RF service handheld (HHD)"), t("4G service tool (HHD)"), t("Service gateway"), r("Obstruction re-check: spectrum analyzer")],
       firmware: [t("Firmware recovery"), t("FOTA recovery")],
       software: [t("On-site diagnostics app")],
       artifacts: [t("Device & connectivity logs"), t("RF route, cellular history, signatures")],
@@ -544,6 +544,47 @@ export const FIELD_MATRIX: { phase: string; icon: string; devices: string; tools
 ];
 
 /* ------------------------------------------------------------------ */
+/*  Obstruction & environment detection (RED — needs confirmation)     */
+/* ------------------------------------------------------------------ */
+
+export interface Obstruction {
+  obstacle: string;
+  risk: string;
+  detect: string;
+  device: string;
+}
+
+export const OBSTRUCTION_DETECTION: Obstruction[] = [
+  {
+    obstacle: "Multi-storey / high-rise buildings",
+    risk: "RF shadowing & multipath — the parent node gets hidden, hop count spikes.",
+    detect: "Laser rangefinder + clinometer + digital compass log obstruction height, distance & bearing; geo-tagged photo with on-device AI classifies the structure.",
+    device: "RF Survey HHD + LiDAR rangefinder & AI camera",
+  },
+  {
+    obstacle: "Large / dense trees (seasonal foliage)",
+    risk: "Signal attenuation that worsens in rain and full-foliage season — intermittent drops.",
+    detect: "AI camera classifies canopy density; spectrum analyzer measures real attenuation; site flagged for seasonal re-survey.",
+    device: "RF Survey HHD + spectrum analyzer & AI camera",
+  },
+  {
+    obstacle: "Ground / basement / underground meters",
+    risk: "Deep signal loss and GPS unavailable — device may be Never-Comm at birth.",
+    detect: "Barometric altimeter + floor/level tag records depth; GNSS + IMU dead-reckoning fixes position where GPS is lost.",
+    device: "RF Survey HHD + barometric altimeter & IMU dead-reckoning",
+  },
+  {
+    obstacle: "Metal structures / water tanks / HT lines",
+    risk: "Reflection, blockage and elevated RF noise floor near the device.",
+    detect: "Spectrum analyzer noise-floor reading + geo-tagged photo; registered as a fixed obstruction on the site record.",
+    device: "RF Service HHD + spectrum analyzer",
+  },
+];
+
+export const OBSTRUCTION_NOTE =
+  "Every obstruction is captured as a geo-tagged Obstruction Profile on the site/device record and fed to the Coverage Prediction Engine + NMS — so weak sites are predicted before install and re-checked during field service.";
+
+/* ------------------------------------------------------------------ */
 /*  RED — decisions that need your confirmation                        */
 /* ------------------------------------------------------------------ */
 
@@ -672,7 +713,7 @@ export const FLEET_KPIS = [
   { label: "Devices Under Management", value: "1,284,530", delta: "+3.2%", positive: true },
   { label: "Fleet Health Score", value: "94.6%", delta: "+0.8%", positive: true },
   { label: "Active Predictive Alerts", value: "312", delta: "-11%", positive: true },
-  { label: "Avg. Warranty Cost / Device", value: "$1.42", delta: "-6.4%", positive: true },
+  { label: "Avg. Warranty Cost / Device", value: "₹118", delta: "-6.4%", positive: true },
 ];
 
 export const DEVICE_CATEGORIES = [
@@ -697,11 +738,11 @@ export interface BoardKpi {
 
 export const BOARD_KPIS: BoardKpi[] = [
   // Cost
-  { group: "Cost", label: "Avg. Cost to Operate", value: "$3.10", sub: "per device / year", delta: "-7.5%", positive: true },
-  { group: "Cost", label: "Avg. Cost / Service Visit", value: "$86", sub: "per truck-roll", delta: "-9.1%", positive: true },
-  { group: "Cost", label: "Avg. Cost / Warranty Claim", value: "$41", sub: "repair + logistics", delta: "-6.4%", positive: true },
+  { group: "Cost", label: "Avg. Cost to Operate", value: "₹260", sub: "per device / year", delta: "-7.5%", positive: true },
+  { group: "Cost", label: "Avg. Cost / Service Visit", value: "₹7,150", sub: "per truck-roll", delta: "-9.1%", positive: true },
+  { group: "Cost", label: "Avg. Cost / Warranty Claim", value: "₹3,400", sub: "repair + logistics", delta: "-6.4%", positive: true },
   { group: "Cost", label: "Warranty Cost % of Revenue", value: "1.8%", sub: "target < 2.0%", delta: "-0.3 pt", positive: true },
-  { group: "Cost", label: "Annual Cost Saved vs Baseline", value: "$4.6M", sub: "fewer visits + RMAs", delta: "+18%", positive: true },
+  { group: "Cost", label: "Annual Cost Saved vs Baseline", value: "₹38 Cr", sub: "fewer visits + RMAs", delta: "+18%", positive: true },
   // Reliability
   { group: "Reliability", label: "MTBF", value: "8.7 yrs", sub: "mean time between failures", delta: "+0.4 yr", positive: true },
   { group: "Reliability", label: "Annual Failure Rate", value: "1.9%", sub: "of installed base", delta: "-0.5 pt", positive: true },
