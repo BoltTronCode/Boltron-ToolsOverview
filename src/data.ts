@@ -217,6 +217,11 @@ export const STAGES: Stage[] = [
       { name: "Service Center Test Jig", type: "Hardware", purpose: "Bench validation of returned devices." },
       { name: "RF Validation Bench", type: "Hardware", purpose: "Detailed RF characterization for repair." },
       { name: "Cellular Validation Bench", type: "Hardware", purpose: "Detailed cellular characterization for repair." },
+      { name: "Flashing & Provisioning Jig (reused from Mfg)", type: "Hardware", purpose: "Re-flashes and re-provisions repaired / refurbished units." },
+      { name: "Functional Test Jig (reused from Mfg)", type: "Hardware", purpose: "Re-verifies board-level functionality after repair." },
+      { name: "RF Validation Jig (reused from Mfg)", type: "Hardware", purpose: "Re-checks RF performance and calibration after repair." },
+      { name: "Manufacturing Test Software (MES)", type: "Software", purpose: "Runs the same test sequence on returned units for pass/fail." },
+      { name: "Firmware Recovery Image", type: "Firmware", purpose: "Restores refurbished devices to a known-good signed build." },
     ],
     diagnostics: [
       "Failure Classification",
@@ -413,7 +418,7 @@ export const PHASES: Phase[] = [
     icon: "🧰",
     output: "Warranty Closure Report",
     lanes: {
-      hardware: [t("Service center test jig"), t("RF validation bench"), t("Cellular validation bench")],
+      hardware: [t("Service center test jig"), t("RF validation bench"), t("Cellular validation bench"), t("Reused Flashing / Functional / RF jigs")],
       firmware: [t("Reflash / refurbish image")],
       software: [t("RMA / warranty system")],
       artifacts: [t("Failure class, root cause"), t("Repair actions, replacement history")],
@@ -545,7 +550,7 @@ export const FIELD_MATRIX: { phase: string; icon: string; devices: string; tools
     phase: "Repair, Replacement & Warranty",
     icon: "🧰",
     devices: "Returned units (RMA) of any class",
-    tools: "Service center test jig · RF validation bench · Cellular validation bench",
+    tools: "Service center test jig · RF validation bench · Cellular validation bench · reused Flashing / Functional / RF jigs (from Mfg)",
   },
 ];
 
