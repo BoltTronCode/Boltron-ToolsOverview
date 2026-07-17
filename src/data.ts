@@ -682,6 +682,38 @@ export const DEVICE_CATEGORIES = [
   { name: "DCUs", count: 39230, health: 91 },
 ];
 
+/* ------------------------------------------------------------------ */
+/*  Board / CxO scorecard — critical metrics (illustrative demo data)  */
+/* ------------------------------------------------------------------ */
+
+export interface BoardKpi {
+  label: string;
+  value: string;
+  sub: string;
+  delta: string;
+  positive: boolean;
+  group: "Cost" | "Reliability" | "Efficiency";
+}
+
+export const BOARD_KPIS: BoardKpi[] = [
+  // Cost
+  { group: "Cost", label: "Avg. Cost to Operate", value: "$3.10", sub: "per device / year", delta: "-7.5%", positive: true },
+  { group: "Cost", label: "Avg. Cost / Service Visit", value: "$86", sub: "per truck-roll", delta: "-9.1%", positive: true },
+  { group: "Cost", label: "Avg. Cost / Warranty Claim", value: "$41", sub: "repair + logistics", delta: "-6.4%", positive: true },
+  { group: "Cost", label: "Warranty Cost % of Revenue", value: "1.8%", sub: "target < 2.0%", delta: "-0.3 pt", positive: true },
+  { group: "Cost", label: "Annual Cost Saved vs Baseline", value: "$4.6M", sub: "fewer visits + RMAs", delta: "+18%", positive: true },
+  // Reliability
+  { group: "Reliability", label: "MTBF", value: "8.7 yrs", sub: "mean time between failures", delta: "+0.4 yr", positive: true },
+  { group: "Reliability", label: "Annual Failure Rate", value: "1.9%", sub: "of installed base", delta: "-0.5 pt", positive: true },
+  { group: "Reliability", label: "Non / Never-Comm", value: "3.4%", sub: "of fleet needing HHD", delta: "-0.6 pt", positive: true },
+  { group: "Reliability", label: "Fleet Health Score", value: "94.6%", sub: "weighted health", delta: "+0.8%", positive: true },
+  // Efficiency
+  { group: "Efficiency", label: "First-Pass Yield", value: "98.3%", sub: "manufacturing / PDI", delta: "+0.7 pt", positive: true },
+  { group: "Efficiency", label: "Truck-Roll Avoidance", value: "62%", sub: "resolved remotely (FOTA/NMS)", delta: "+5 pt", positive: true },
+  { group: "Efficiency", label: "Predictive Catch Rate", value: "71%", sub: "failures caught before outage", delta: "+8 pt", positive: true },
+  { group: "Efficiency", label: "Mean Time to Resolve", value: "2.4 days", sub: "issue → fix deployed", delta: "-0.6 d", positive: true },
+];
+
 export function allTools(): (Tool & { stage: string; stageId: number })[] {
   return STAGES.flatMap((s) =>
     s.tools.map((t) => ({ ...t, stage: s.name, stageId: s.id })),

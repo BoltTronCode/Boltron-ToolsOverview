@@ -1168,6 +1168,69 @@ body {
   border: 1px solid var(--border);
 }
 
+/* Board / CxO scorecard */
+.board-group {
+  margin-top: 14px;
+}
+
+.board-group-head {
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
+  padding: 4px 2px 8px;
+  border-bottom: 1px solid var(--border);
+  margin-bottom: 12px;
+}
+
+.board-group-icon {
+  font-size: 15px;
+}
+
+.board-group-name {
+  font-weight: 800;
+  font-size: 13px;
+  letter-spacing: 0.02em;
+  color: var(--text);
+}
+
+.board-group-desc {
+  font-size: 11.5px;
+  color: var(--text-muted);
+}
+
+.board-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+  gap: 12px;
+}
+
+.board-kpi {
+  background: var(--bg-card-2);
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  padding: 14px 16px;
+}
+
+.board-kpi-label {
+  font-size: 11.5px;
+  font-weight: 600;
+  color: var(--text-dim);
+}
+
+.board-kpi-value {
+  font-size: 26px;
+  font-weight: 800;
+  letter-spacing: -0.02em;
+  color: var(--text);
+  margin-top: 4px;
+}
+
+.board-kpi-sub {
+  font-size: 11px;
+  color: var(--text-muted);
+  margin: 2px 0 6px;
+}
+
 /* What-runs-where matrix */
 .matrix {
   display: flex;

@@ -1,11 +1,18 @@
 import {
   FLEET_KPIS,
+  BOARD_KPIS,
   DEVICE_CATEGORIES,
   STAGES,
   TOOL_TYPE_META,
   toolTypeCounts,
   type ToolType,
 } from "../data";
+
+const BOARD_GROUPS = [
+  { key: "Cost", icon: "💰", desc: "What the fleet costs to run and support." },
+  { key: "Reliability", icon: "🛡️", desc: "How dependable the installed base is." },
+  { key: "Efficiency", icon: "⚡", desc: "How well the platform prevents cost & downtime." },
+] as const;
 
 function healthColor(h: number): string {
   if (h >= 95) return "var(--good)";
@@ -36,6 +43,33 @@ export default function Overview({ onOpenStage }: { onOpenStage: (id: number) =>
             <div className="kpi-value">{k.value}</div>
             <div className={`kpi-delta ${k.positive ? "up" : "down"}`}>
               {k.delta} vs last quarter
+            </div>
+          </div>
+        ))}
+      </div>
+
+      <div className="card" style={{ marginBottom: 22 }}>
+        <h3 className="section-title">Board / CxO Scorecard</h3>
+        <p className="section-sub">
+          The critical numbers for the board — cost, reliability and efficiency of the whole fleet.
+          Deltas are vs last quarter. Values are illustrative demo data.
+        </p>
+        {BOARD_GROUPS.map((g) => (
+          <div className="board-group" key={g.key}>
+            <div className="board-group-head">
+              <span className="board-group-icon">{g.icon}</span>
+              <span className="board-group-name">{g.key}</span>
+              <span className="board-group-desc">{g.desc}</span>
+            </div>
+            <div className="board-grid">
+              {BOARD_KPIS.filter((k) => k.group === g.key).map((k) => (
+                <div className="board-kpi" key={k.label}>
+                  <div className="board-kpi-label">{k.label}</div>
+                  <div className="board-kpi-value">{k.value}</div>
+                  <div className="board-kpi-sub">{k.sub}</div>
+                  <div className={`kpi-delta ${k.positive ? "up" : "down"}`}>{k.delta}</div>
+                </div>
+              ))}
             </div>
           </div>
         ))}
