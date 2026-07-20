@@ -12,7 +12,7 @@ const ghPages = process.env.GHPAGES === '1'
 
 // https://vite.dev/config/
 export default defineConfig({
-  base: singleFile ? './' : ghPages ? '/boltron-dashboard/' : '/',
+  base: singleFile ? './' : ghPages ? '/Boltron-ToolsOverview/' : '/',
   plugins: [react(), ...(singleFile ? [viteSingleFile()] : [])],
   server: { host: true, allowedHosts: true },
   preview: { host: true, allowedHosts: true },
