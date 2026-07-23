@@ -34,6 +34,7 @@ const TOOLTIP_STYLE = {
 export function CapacityPanel({ cap }: { cap: CapacityResult }) {
   const resources = [
     { name: 'WiSUN RF', nodes: cap.maxNodesRf, perNodeMs: cap.perNodeRfMs },
+    { name: 'Assoc TO', nodes: cap.maxNodesAssoc, perNodeMs: cap.maxStepChannelMs },
     { name: 'BR UART', nodes: cap.maxNodesUart, perNodeMs: cap.perNodeUartMs },
     { name: '4G/MQTT', nodes: cap.maxNodesCellular, perNodeMs: cap.perNodeCellularMs },
     { name: 'GW CPU', nodes: cap.maxNodesGw, perNodeMs: cap.perNodeGwMs },

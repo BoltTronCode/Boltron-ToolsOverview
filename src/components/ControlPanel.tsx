@@ -16,6 +16,9 @@ import {
   Wifi,
   FileStack,
   Repeat,
+  ShieldCheck,
+  Users,
+  Zap,
 } from 'lucide-react'
 import clsx from 'clsx'
 import { PARAM_GROUPS, type ParamField } from '../config/paramSchema'
@@ -31,6 +34,7 @@ const ICONS: Record<string, typeof RadioTower> = {
   Cpu,
   Signal,
   Gauge,
+  ShieldCheck,
 }
 
 interface Props {
@@ -38,10 +42,13 @@ interface Props {
   dlmsId: string
   useCaseId: string
   net: NetworkParams
+  targetNodes: number
   onPhy: (id: string) => void
   onDlms: (id: string) => void
   onUseCase: (id: string) => void
   onNet: (patch: Partial<NetworkParams>) => void
+  onTargetNodes: (n: number) => void
+  onIdealRf: () => void
   onReset: () => void
 }
 
@@ -219,10 +226,13 @@ export function ControlPanel({
   dlmsId,
   useCaseId,
   net,
+  targetNodes,
   onPhy,
   onDlms,
   onUseCase,
   onNet,
+  onTargetNodes,
+  onIdealRf,
   onReset,
 }: Props) {
   return (
@@ -258,6 +268,34 @@ export function ControlPanel({
           render={(u) => u.label}
           onChange={onUseCase}
         />
+
+        <div>
+          <div className="label mb-1.5 flex items-center gap-1.5">
+            <Users className="h-3.5 w-3.5" /> Target fleet size (per BR)
+          </div>
+          <div className="flex items-center gap-2">
+            <input
+              type="range"
+              min={1}
+              max={500}
+              step={1}
+              value={targetNodes}
+              onChange={(e) => onTargetNodes(Number(e.target.value))}
+            />
+            <input
+              type="number"
+              min={1}
+              max={5000}
+              value={targetNodes}
+              onChange={(e) => onTargetNodes(Math.max(1, Number(e.target.value)))}
+              className="input w-20 !py-1.5 text-center"
+            />
+          </div>
+        </div>
+
+        <button className="btn-primary w-full !py-2 text-xs" onClick={onIdealRf}>
+          <Zap className="h-3.5 w-3.5" /> Ideal RF · 1:100 star (PER 0, 1 hop)
+        </button>
       </Card>
 
       {PARAM_GROUPS.map((group, i) => {

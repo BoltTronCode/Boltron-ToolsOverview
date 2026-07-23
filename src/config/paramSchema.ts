@@ -77,6 +77,16 @@ export const PARAM_GROUPS: ParamGroup[] = [
     ],
   },
   {
+    id: 'reliability',
+    title: 'Meter Association / QoS2 Engine',
+    icon: 'ShieldCheck',
+    fields: [
+      { key: 'assocTimeoutMs', label: 'Association inactivity timeout', unit: 'ms', kind: 'slider', min: 1000, max: 120000, step: 1000, hint: 'If the next request to a meter arrives after this gap, the meter drops the association.' },
+      { key: 'piNicQos2', label: 'Pi ↔ RF-NIC QoS2 (exactly-once)', kind: 'toggle' },
+      { key: 'piNicQos2Ms', label: 'QoS2 per-message overhead', unit: 'ms', kind: 'number', min: 0, max: 50, step: 0.5 },
+    ],
+  },
+  {
     id: 'cellular',
     title: '4G Backhaul / MQTT (EC200U)',
     icon: 'Signal',

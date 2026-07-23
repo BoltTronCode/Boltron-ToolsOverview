@@ -90,6 +90,13 @@ export interface NetworkParams {
 
   // ---- Meter ----
   meterProcessingMs: number // DLMS request handling time inside the meter
+  assocTimeoutMs: number // meter association inactivity timeout; if the next
+  // request arrives later than this after a response, the meter tears down the
+  // association and the transaction/session must restart.
+
+  // ---- Pi <-> RF NIC QoS2 (exactly-once) engine ----
+  piNicQos2: boolean // exactly-once delivery engine between Pi and RF NIC
+  piNicQos2Ms: number // per-message overhead added by that handshake
 
   // ---- MQTT / cellular backhaul (EC200U over USB) ----
   cellularRttMs: number // round-trip latency gateway <-> broker over 4G
@@ -150,12 +157,39 @@ export interface CapacityResult {
   perNodeUartMs: number
   perNodeCellularMs: number
   perNodeGwMs: number
-  maxNodesRf: number
+  maxStepChannelMs: number // heaviest single transaction step (both directions)
+  maxNodesRf: number // limited by cycle-time channel saturation
   maxNodesUart: number
   maxNodesCellular: number
   maxNodesGw: number
+  maxNodesAssoc: number // limited by association inactivity timeout
   maxNodes: number
   bottleneck: string
   cycleSeconds: number
+  targetNodes: number
+  gapAtTargetMs: number // worst-case inter-message gap for one meter at targetNodes
+  statusAtTarget: SupportStatus
   channelUtilPercentAt: (nodes: number) => number
+  gapAt: (nodes: number) => number
+}
+
+export type SupportStatus = 'ok' | 'warn' | 'fail'
+
+/** Per-profile verdict at the chosen target fleet size (parallel poll model). */
+export interface ProfileSupport {
+  id: string
+  label: string
+  category: string
+  reqBytesTotal: number
+  respBytesTotal: number
+  txnCount: number
+  perNodeChannelMs: number
+  maxStepChannelMs: number
+  maxNodesRf: number
+  maxNodesAssoc: number
+  nSupported: number
+  bottleneck: string
+  gapAtTargetMs: number
+  utilAtTargetPct: number
+  status: SupportStatus
 }

@@ -10,20 +10,26 @@
  * Company : Boltron Telesystems Private Limited
  */
 import { useMemo, useState } from 'react'
-import { Activity, Boxes, Clock, Gauge, Radio, Github } from 'lucide-react'
+import { Activity, Boxes, Clock, Radio, Github, ShieldAlert } from 'lucide-react'
 import { PHY_PROFILES, DEFAULT_PHY_ID } from './config/phyProfiles'
 import { DLMS_PROFILES, DEFAULT_DLMS_ID } from './config/dlmsProfiles'
 import { USE_CASES, DEFAULT_USE_CASE_ID } from './config/useCases'
 import { DEFAULT_NETWORK } from './config/networkConfig'
 import type { NetworkParams } from './lib/types'
 import { parseProfile } from './lib/logParser'
-import { computeCapacity, computeSessionBudget, computeStageBudget } from './lib/engine'
+import {
+  computeCapacity,
+  computeSessionBudget,
+  computeStageBudget,
+  evaluateProfiles,
+} from './lib/engine'
 import { fmtMs, fmtNum, fmtRate, fmtBytes } from './lib/format'
 import { ControlPanel } from './components/ControlPanel'
 import { PipelineDiagram } from './components/PipelineDiagram'
 import { CapacityPanel } from './components/CapacityPanel'
 import { LatencyPanel } from './components/LatencyPanel'
 import { ProfileExplorer } from './components/ProfileExplorer'
+import { SupportMatrix } from './components/SupportMatrix'
 import { Stat, Card } from './components/ui'
 
 export default function App() {
@@ -31,6 +37,7 @@ export default function App() {
   const [dlmsId, setDlmsId] = useState(DEFAULT_DLMS_ID)
   const [useCaseId, setUseCaseId] = useState(DEFAULT_USE_CASE_ID)
   const [net, setNet] = useState<NetworkParams>(DEFAULT_NETWORK)
+  const [targetNodes, setTargetNodes] = useState(100)
 
   // Parse every built-in capture once.
   const allStats = useMemo(
@@ -48,8 +55,24 @@ export default function App() {
     [stats, phy, net],
   )
   const capacity = useMemo(
-    () => computeCapacity(stats, phy, net, useCase),
-    [stats, phy, net, useCase],
+    () => computeCapacity(stats, phy, net, useCase, targetNodes),
+    [stats, phy, net, useCase, targetNodes],
+  )
+  const support = useMemo(
+    () =>
+      evaluateProfiles(
+        DLMS_PROFILES.map((p) => ({
+          id: p.id,
+          label: p.label,
+          category: p.category,
+          stats: allStats[p.id],
+        })),
+        phy,
+        net,
+        useCase,
+        targetNodes,
+      ),
+    [allStats, phy, net, useCase, targetNodes],
   )
 
   // Representative transaction (largest response) for the pipeline diagram.
@@ -62,12 +85,24 @@ export default function App() {
     })
   }, [stats, phy, net, sessionBudget])
 
+  const verdict =
+    capacity.statusAtTarget === 'ok'
+      ? { label: 'Supported', accent: 'text-teal-300' }
+      : capacity.statusAtTarget === 'warn'
+        ? { label: 'Marginal', accent: 'text-amber-300' }
+        : { label: 'At risk', accent: 'text-rose-300' }
+
   const patchNet = (patch: Partial<NetworkParams>) => setNet((n) => ({ ...n, ...patch }))
+  const idealRf = () => {
+    patchNet({ hopCount: 1, packetErrorRate: 0 })
+    setTargetNodes(100)
+  }
   const reset = () => {
     setNet(DEFAULT_NETWORK)
     setPhyId(DEFAULT_PHY_ID)
     setDlmsId(DEFAULT_DLMS_ID)
     setUseCaseId(DEFAULT_USE_CASE_ID)
+    setTargetNodes(100)
   }
 
   return (
@@ -107,10 +142,13 @@ export default function App() {
             dlmsId={dlmsId}
             useCaseId={useCaseId}
             net={net}
+            targetNodes={targetNodes}
             onPhy={setPhyId}
             onDlms={setDlmsId}
             onUseCase={setUseCaseId}
             onNet={patchNet}
+            onTargetNodes={setTargetNodes}
+            onIdealRf={idealRf}
             onReset={reset}
           />
         </aside>
@@ -127,6 +165,20 @@ export default function App() {
               icon={<Boxes className="h-4 w-4" />}
             />
             <Stat
+              label={`Verdict @ ${fmtNum(targetNodes)} nodes`}
+              value={verdict.label}
+              sub={`Assoc gap ${fmtMs(capacity.gapAtTargetMs)} vs ${fmtMs(net.assocTimeoutMs)} timeout`}
+              accent={verdict.accent}
+              icon={<ShieldAlert className="h-4 w-4" />}
+            />
+            <Stat
+              label="RF channel time / meter"
+              value={fmtMs(capacity.perNodeRfMs)}
+              sub={`${fmtRate(phy.dataRateKbps)} · ${fmtBytes(stats.appBytesTotal)} app · ${stats.frames} frames`}
+              accent="text-cyan-300"
+              icon={<Activity className="h-4 w-4" />}
+            />
+            <Stat
               label="Profile read time (1 meter)"
               value={fmtMs(sessionBudget.totalMs)}
               sub={
@@ -137,23 +189,11 @@ export default function App() {
               accent="text-teal-300"
               icon={<Clock className="h-4 w-4" />}
             />
-            <Stat
-              label="RF channel time / meter"
-              value={fmtMs(capacity.perNodeRfMs)}
-              sub={`${fmtBytes(stats.appBytesTotal)} app · ${stats.frames} frames`}
-              accent="text-cyan-300"
-              icon={<Activity className="h-4 w-4" />}
-            />
-            <Stat
-              label="PHY line rate"
-              value={fmtRate(phy.dataRateKbps)}
-              sub={phy.modulation}
-              accent="text-violet-300"
-              icon={<Gauge className="h-4 w-4" />}
-            />
           </div>
 
           <PipelineDiagram budget={repBudget} />
+
+          <SupportMatrix rows={support} targetNodes={targetNodes} assocTimeoutMs={net.assocTimeoutMs} />
 
           <CapacityPanel cap={capacity} />
 
@@ -177,10 +217,14 @@ export default function App() {
               <span className="font-semibold text-slate-400">How it works — </span>
               Real NMS captures are parsed to derive per-transaction frame sizes and measured
               timings. The engine adds 6LoWPAN/IPv6/UDP + 802.15.4 MAC + PHY overhead, CSMA/CA,
-              mesh hops and PER-driven retransmissions to compute WiSUN airtime, then layers UART,
-              gateway, and 4G/MQTT (QoS{net.mqttQos}) latency. Capacity is the minimum node count
-              across every shared resource for the selected cycle. All parameters on the left are
-              live — tune them to match your deployment.
+              mesh hops and PER-driven retransmissions to compute WiSUN airtime, then layers the
+              Pi↔RF-NIC QoS2 (exactly-once) engine, UART, gateway, meter and 4G/MQTT (QoS
+              {net.mqttQos}) latency. Fleet capacity uses a <span className="text-slate-400">parallel
+              poll model</span>: every meter advances step-by-step over the single BR radio, and the
+              worst-case inter-message gap must stay under the meter's association inactivity timeout
+              ({fmtMs(net.assocTimeoutMs)}) or the association is dropped. The supported node count is
+              the minimum across the RF channel, association timeout, UART, 4G/MQTT and gateway CPU.
+              All parameters on the left are live — tune them to match your deployment.
             </p>
           </Card>
 

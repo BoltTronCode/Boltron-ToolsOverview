@@ -39,6 +39,11 @@ export const DEFAULT_NETWORK: NetworkParams = {
 
   // ---- Meter DLMS processing ----
   meterProcessingMs: 120, // per request (assoc/get) inside meter firmware
+  assocTimeoutMs: 30000, // association inactivity timeout (typical DLMS: 30-120 s)
+
+  // ---- Pi <-> RF NIC QoS2 (exactly-once) engine ----
+  piNicQos2: true,
+  piNicQos2Ms: 3, // per-message exactly-once handshake overhead on the local link
 
   // ---- MQTT / cellular backhaul (EC200U 4G over USB) ----
   cellularRttMs: 120, // gateway <-> broker round trip over 4G

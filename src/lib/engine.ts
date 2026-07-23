@@ -114,6 +114,7 @@ export function computeStageBudget(
   const isPush = opts.isPush ?? false
   const cellOneWay = net.cellularRttMs / 2
   const hs = mqttHandshakeMs(net)
+  const qos2 = net.piNicQos2 ? net.piNicQos2Ms : 0
   const stages: LatencyStage[] = []
 
   const rfDown = computeAirtime(reqBytes, phy, net)
@@ -148,6 +149,14 @@ export function computeStageBudget(
       ms: uartMs(reqBytes, net),
       detail: `Pi ↔ BR serial @ ${net.uartBaud} baud`,
     })
+    if (qos2 > 0)
+      stages.push({
+        key: 'qos2-down',
+        label: 'Pi ↔ RF-NIC QoS2',
+        group: 'downlink',
+        ms: qos2,
+        detail: 'Exactly-once (QoS2) handshake between Pi and RF NIC',
+      })
     stages.push({
       key: 'rf-down',
       label: 'WiSUN RF (downlink)',
@@ -172,6 +181,14 @@ export function computeStageBudget(
     ms: rfUp.totalAirtimeMs,
     detail: `${rfUp.fragments} frag · ${rfUp.onAirBytes} B on-air · ${net.hopCount} hop(s)`,
   })
+  if (qos2 > 0)
+    stages.push({
+      key: 'qos2-up',
+      label: 'RF-NIC ↔ Pi QoS2',
+      group: 'uplink',
+      ms: qos2,
+      detail: 'Exactly-once (QoS2) handshake between RF NIC and Pi',
+    })
   stages.push({
     key: 'uart-up',
     label: 'Border Router → UART',
@@ -268,19 +285,48 @@ export function perNodeChannelMs(
 }
 
 /**
- * Fleet capacity: how many meters one Border Router / gateway can serve inside
- * one cycle, across every candidate bottleneck. Returns the binding constraint.
+ * Channel occupancy (ms) of each individual transaction STEP (request +
+ * response airtime, both directions). In the parallel poll model every meter
+ * advances through these steps together, so the heaviest step governs the
+ * worst-case inter-message gap that the meter association timeout must survive.
+ */
+export function stepChannelTimes(
+  stats: ProfileStats,
+  phy: PhyProfile,
+  net: NetworkParams,
+): number[] {
+  return stats.transactions.map(
+    (t) =>
+      computeAirtime(t.reqBytes, phy, net).totalAirtimeMs +
+      computeAirtime(t.respBytes, phy, net).totalAirtimeMs,
+  )
+}
+
+/**
+ * Fleet capacity under the PARALLEL poll model: every meter is polled at the
+ * same time and the single BR radio serialises all frames round-robin per step.
+ *
+ * Two independent limits are evaluated:
+ *  - Channel saturation : Σ per-node channel time must fit the poll cycle.
+ *  - Association timeout : for one meter, the gap between consecutive messages
+ *    (while the radio services the other N-1 meters at the heaviest step) must
+ *    stay below the meter's association inactivity timeout, else it drops.
+ *
+ * Also checks UART, 4G/MQTT backhaul and gateway CPU. Returns the binding one.
  */
 export function computeCapacity(
   stats: ProfileStats,
   phy: PhyProfile,
   net: NetworkParams,
   useCase: UseCase,
+  targetNodes = 100,
 ): CapacityResult {
   const cycleMs = useCase.cycleSeconds * 1000
 
   // ---- Per-node cost on each shared resource ----
   const perNodeRfMs = perNodeChannelMs(stats, phy, net)
+  const steps = stepChannelTimes(stats, phy, net)
+  const maxStepChannelMs = steps.length ? Math.max(...steps) : 0
 
   let perNodeUartMs = 0
   let perNodeCellularMs = 0
@@ -309,26 +355,76 @@ export function computeCapacity(
   const maxNodesCellular = nodesFor(perNodeCellularMs, otherCap)
   const maxNodesGw = nodesFor(perNodeGwMs, otherCap)
 
+  // Association-timeout limit: worst-case gap for a meter ≈ N × heaviest step
+  // (the radio is busy with the other meters between its two messages).
+  const gapAt = (nodes: number) => nodes * maxStepChannelMs
+  const maxNodesAssoc =
+    maxStepChannelMs <= 0 ? Infinity : Math.floor(net.assocTimeoutMs / maxStepChannelMs)
+
   const candidates: Array<{ name: string; nodes: number }> = [
     { name: 'WiSUN RF channel', nodes: maxNodesRf },
+    { name: 'Association timeout', nodes: maxNodesAssoc },
     { name: 'Pi ↔ BR UART', nodes: maxNodesUart },
     { name: '4G / MQTT backhaul', nodes: maxNodesCellular },
     { name: 'Gateway CPU', nodes: maxNodesGw },
   ]
   const binding = candidates.reduce((a, b) => (b.nodes < a.nodes ? b : a))
 
+  const gapAtTargetMs = gapAt(targetNodes)
+  const statusAtTarget: CapacityResult['statusAtTarget'] =
+    targetNodes <= binding.nodes ? 'ok' : targetNodes <= binding.nodes * 1.15 ? 'warn' : 'fail'
+
   return {
     perNodeRfMs,
     perNodeUartMs,
     perNodeCellularMs,
     perNodeGwMs,
+    maxStepChannelMs,
     maxNodesRf,
     maxNodesUart,
     maxNodesCellular,
     maxNodesGw,
+    maxNodesAssoc,
     maxNodes: binding.nodes,
     bottleneck: binding.name,
     cycleSeconds: useCase.cycleSeconds,
-    channelUtilPercentAt: (nodes: number) => (nodes * perNodeRfMs * 100) / cycleMs,
+    targetNodes,
+    gapAtTargetMs,
+    statusAtTarget,
+    channelUtilPercentAt: (nodes: number) => (nodes * perNodeRfMs * 100) / (cycleMs * rfCap),
+    gapAt,
   }
+}
+
+/**
+ * Evaluate EVERY DLMS profile at the chosen target fleet size and classify it
+ * as ok / warn / fail — the "which use-cases have an issue?" matrix.
+ */
+export function evaluateProfiles(
+  profiles: { id: string; label: string; category: string; stats: ProfileStats }[],
+  phy: PhyProfile,
+  net: NetworkParams,
+  useCase: UseCase,
+  targetNodes: number,
+): import('./types').ProfileSupport[] {
+  return profiles.map((p) => {
+    const cap = computeCapacity(p.stats, phy, net, useCase, targetNodes)
+    return {
+      id: p.id,
+      label: p.label,
+      category: p.category,
+      reqBytesTotal: p.stats.reqBytesTotal,
+      respBytesTotal: p.stats.respBytesTotal,
+      txnCount: p.stats.txnCount,
+      perNodeChannelMs: cap.perNodeRfMs,
+      maxStepChannelMs: cap.maxStepChannelMs,
+      maxNodesRf: cap.maxNodesRf,
+      maxNodesAssoc: cap.maxNodesAssoc,
+      nSupported: cap.maxNodes,
+      bottleneck: cap.bottleneck,
+      gapAtTargetMs: cap.gapAtTargetMs,
+      utilAtTargetPct: cap.channelUtilPercentAt(targetNodes),
+      status: cap.statusAtTarget,
+    }
+  })
 }
