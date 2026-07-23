@@ -265,3 +265,39 @@ export interface BatchAnalysis {
   assocOk: boolean
   oversizeFrame: boolean // a frame exceeds PSDU cap with fragmentation off
 }
+
+/** One parameter name/value pair shown as a chip in the data-flow diagram. */
+export interface FlowParam {
+  label: string
+  value: string
+}
+
+/** A sub-component timing within a stage (e.g. RF = frame + ACK + CSMA + FH). */
+export interface FlowSubBreakdown {
+  label: string
+  ms: number
+}
+
+/** Full per-stage detail for the data-flow diagram: timing + formula + params. */
+export interface FlowBlockDetail {
+  key: string
+  label: string
+  group: 'downlink' | 'meter' | 'uplink'
+  ms: number
+  formula: string // human-readable formula expression
+  params: FlowParam[] // parameter name-value pairs that feed the formula
+  subBreakdown: FlowSubBreakdown[] // sub-component timings (empty if atomic)
+  pctOfTotal: number // percentage of the total round-trip
+}
+
+/** Complete data-flow breakdown for one transaction (request down + response up). */
+export interface FlowDetail {
+  blocks: FlowBlockDetail[]
+  totalMs: number
+  downlinkMs: number
+  meterMs: number
+  uplinkMs: number
+  reqBytes: number
+  respBytes: number
+  isPush: boolean
+}

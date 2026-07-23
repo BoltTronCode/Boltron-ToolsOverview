@@ -8,7 +8,9 @@ import {
   computeAirtime,
   computeBatch,
   computeCapacity,
+  computeFlowDetail,
   computeSessionBudget,
+  computeStageBudget,
   evaluateProfiles,
 } from '../src/lib/engine.ts'
 import { DEFAULT_NETWORK as BASE } from '../src/config/networkConfig.ts'
@@ -92,4 +94,49 @@ console.log('\n=== UART serial reality (115200 vs 921600 baud, 797B) ===')
 for (const baud of [115200, 921600]) {
   const ms = ((797 + BASE.brFramingOverheadBytes) * BASE.uartBitsPerByte * 1000) / baud
   console.log(`${String(baud).padStart(7)} baud -> ${ms.toFixed(1)}ms/frame · 100 frames = ${(ms * 100 / 1000).toFixed(2)}s`)
+}
+
+console.log('\n=== Data-flow detail cross-check (Block Load 7d, heaviest txn, fsk-50) ===')
+{
+  const b7stats = parseProfile(DLMS_PROFILES.find((p) => p.id === 'block-7d')!.raw)
+  const rep = [...b7stats.transactions].sort((a, b) => b.respBytes - a.respBytes)[0]
+  const budget = computeStageBudget(rep.reqBytes, rep.respBytes, phy, BASE, { isPush: rep.isPush })
+  const flow = computeFlowDetail(rep.reqBytes, rep.respBytes, phy, BASE, { isPush: rep.isPush })
+
+  // Verify total matches
+  const totalMatch = Math.abs(flow.totalMs - budget.totalMs) < 0.01
+  console.log(`Total: budget=${budget.totalMs.toFixed(2)}ms flow=${flow.totalMs.toFixed(2)}ms match=${totalMatch}`)
+  console.log(`Downlink: budget=${budget.downlinkMs.toFixed(2)}ms flow=${flow.downlinkMs.toFixed(2)}ms`)
+  console.log(`Uplink:   budget=${budget.uplinkMs.toFixed(2)}ms flow=${flow.uplinkMs.toFixed(2)}ms`)
+  console.log(`Meter:    budget=${budget.meterMs.toFixed(2)}ms flow=${flow.meterMs.toFixed(2)}ms`)
+
+  // Verify each block matches the corresponding stage
+  let allMatch = true
+  for (const block of flow.blocks) {
+    const stage = budget.stages.find((s) => s.key === block.key)
+    if (!stage) {
+      console.log(`  MISSING STAGE: ${block.key}`)
+      allMatch = false
+      continue
+    }
+    const match = Math.abs(block.ms - stage.ms) < 0.01
+    if (!match) {
+      console.log(`  MISMATCH ${block.key}: stage=${stage.ms.toFixed(3)}ms block=${block.ms.toFixed(3)}ms`)
+      allMatch = false
+    }
+  }
+  console.log(`All ${flow.blocks.length} blocks match stage budget: ${allMatch}`)
+
+  // Print the full flow with sub-breakdowns
+  console.log('\n--- Full per-stage breakdown ---')
+  for (const block of flow.blocks) {
+    console.log(`\n#${flow.blocks.indexOf(block) + 1} [${block.group.toUpperCase()}] ${block.label} — ${block.ms.toFixed(2)}ms (${block.pctOfTotal.toFixed(1)}%)`)
+    console.log(`  formula: ${block.formula}`)
+    console.log(`  params:  ${block.params.map((p) => `${p.label}=${p.value}`).join(', ')}`)
+    if (block.subBreakdown.length > 0) {
+      const subSum = block.subBreakdown.reduce((a, s) => a + s.ms, 0)
+      console.log(`  sub:     ${block.subBreakdown.map((s) => `${s.label}=${s.ms.toFixed(2)}ms`).join(' + ')}`)
+      console.log(`  sub sum: ${subSum.toFixed(2)}ms (stage=${block.ms.toFixed(2)}ms)`)
+    }
+  }
 }

@@ -13,6 +13,10 @@ import type {
   AirtimeResult,
   BatchAnalysis,
   CapacityResult,
+  FlowBlockDetail,
+  FlowDetail,
+  FlowParam,
+  FlowSubBreakdown,
   LatencyBudget,
   LatencyStage,
   NetworkParams,
@@ -699,5 +703,405 @@ export function computeBatch(
     assocTimeoutMs: net.assocTimeoutMs,
     assocOk: cap.gapAtTargetMs <= net.assocTimeoutMs,
     oversizeFrame,
+  }
+}
+
+/* ────────────────────────────────────────────────────────────────────────── */
+/*  DATA-FLOW DETAIL — per-stage formula breakdown for the block diagram      */
+/* ────────────────────────────────────────────────────────────────────────── */
+
+/** Round to a sensible number of decimals for display. */
+function r(n: number, d = 2): number {
+  if (!isFinite(n)) return n
+  const f = Math.pow(10, d)
+  return Math.round(n * f) / f
+}
+
+/** Build a FlowSubBreakdown entry (module-level so buildRfBlock can use it). */
+function sub(label: string, ms: number): FlowSubBreakdown {
+  return { label, ms: r(ms) }
+}
+
+/** Build a FlowParam entry (module-level so buildRfBlock can use it). */
+function p(label: string, value: string): FlowParam {
+  return { label, value }
+}
+
+/** Build the complete per-stage formula / parameter breakdown for one txn. */
+export function computeFlowDetail(
+  reqBytes: number,
+  respBytes: number,
+  phy: PhyProfile,
+  net: NetworkParams,
+  opts: { isPush?: boolean } = {},
+): FlowDetail {
+  const isPush = opts.isPush ?? false
+  const budget = computeStageBudget(reqBytes, respBytes, phy, net, { isPush })
+  const rfDown = computeAirtime(reqBytes, phy, net, false)
+  const rfUp = computeAirtime(respBytes, phy, net, true)
+  const qos2 = qos2LocalMs(net)
+  const cellOneWay = net.cellularRttMs / 2
+  const hs = mqttHandshakeMs(net)
+  const total = budget.totalMs
+
+  const pct = (ms: number) => (total > 0 ? (ms / total) * 100 : 0)
+
+  const blocks: FlowBlockDetail[] = []
+
+  // ── DOWNLINK ──────────────────────────────────────────────────────────
+  if (!isPush) {
+    // HES → NMS
+    blocks.push({
+      key: 'hes-nms-down',
+      label: 'HES → NMS',
+      group: 'downlink',
+      ms: r(net.brokerToHesMs),
+      formula: 'brokerToHesMs',
+      params: [p('brokerToHesMs', `${net.brokerToHesMs} ms`)],
+      subBreakdown: [],
+      pctOfTotal: pct(net.brokerToHesMs),
+    })
+
+    // NMS → Gateway (4G via EC200U over USB)
+    const cellSerialDown = serializeMs(reqBytes + net.mqttOverheadBytes, net.cellularThroughputKbps)
+    blocks.push({
+      key: 'cell-down',
+      label: 'NMS → Gateway (4G/EC200U)',
+      group: 'downlink',
+      ms: r(budget.stages.find((s) => s.key === 'cell-down')?.ms ?? 0),
+      formula: '(cellularRttMs / 2) + serialize(reqBytes + mqttOH, cellKbps) + mqttHandshake',
+      params: [
+        p('cellularRttMs', `${net.cellularRttMs} ms`),
+        p('cellularRtt/2', `${r(cellOneWay)} ms`),
+        p('reqBytes', `${reqBytes} B`),
+        p('mqttOverhead', `${net.mqttOverheadBytes} B`),
+        p('cellThroughput', `${net.cellularThroughputKbps} kbps`),
+        p('mqttQos', `${net.mqttQos}`),
+        p('handshake', `${r(hs)} ms`),
+      ],
+      subBreakdown: [
+        sub('4G one-way', cellOneWay),
+        sub('MQTT serialize', cellSerialDown),
+        sub(`QoS${net.mqttQos} handshake`, hs),
+      ],
+      pctOfTotal: pct(budget.stages.find((s) => s.key === 'cell-down')?.ms ?? 0),
+    })
+
+    // Pi: MQTT → UDP (Python)
+    const gwDownMs = (net.gwMqttToUdpMs + net.osSchedulingMs + net.piSelectPollMs) * net.piLoadFactor
+    blocks.push({
+      key: 'gw-down',
+      label: 'Pi: MQTT → UDP (Python)',
+      group: 'downlink',
+      ms: r(gwDownMs),
+      formula: '(gwMqttToUdpMs + osSchedulingMs + piSelectPollMs) × piLoadFactor',
+      params: [
+        p('gwMqttToUdpMs', `${net.gwMqttToUdpMs} ms`),
+        p('osSchedulingMs', `${net.osSchedulingMs} ms`),
+        p('piSelectPollMs', `${net.piSelectPollMs} ms`),
+        p('piLoadFactor', `×${net.piLoadFactor}`),
+      ],
+      subBreakdown: [
+        sub('Python parse+build', net.gwMqttToUdpMs),
+        sub('OS jitter', net.osSchedulingMs),
+        sub('select()/poll()', net.piSelectPollMs),
+        sub(`× load factor`, gwDownMs - (net.gwMqttToUdpMs + net.osSchedulingMs + net.piSelectPollMs)),
+      ],
+      pctOfTotal: pct(gwDownMs),
+    })
+
+    // Pi → RF-NIC QoS2
+    if (qos2 > 0) {
+      const per = clampPer(net.localLinkPer)
+      const expRetries = Math.min(net.qos2MaxRetries, per / Math.max(1e-9, 1 - per))
+      blocks.push({
+        key: 'qos2-down',
+        label: 'Pi → RF-NIC QoS2 (exactly-once)',
+        group: 'downlink',
+        ms: r(qos2),
+        formula: 'piNicQos2Ms + qos2InterPacketMs + E[retries] × qos2RetryWindowMs',
+        params: [
+          p('piNicQos2Ms', `${net.piNicQos2Ms} ms`),
+          p('qos2InterPacketMs', `${net.qos2InterPacketMs} ms`),
+          p('localLinkPer', `${(per * 100).toFixed(1)}%`),
+          p('E[retries]', r(expRetries, 3).toString()),
+          p('qos2RetryWindowMs', `${net.qos2RetryWindowMs} ms`),
+          p('qos2MaxRetries', `${net.qos2MaxRetries}`),
+        ],
+        subBreakdown: [
+          sub('Base handshake', net.piNicQos2Ms),
+          sub('Inter-packet guard', net.qos2InterPacketMs),
+          sub('Expected retries', expRetries * net.qos2RetryWindowMs),
+        ],
+        pctOfTotal: pct(qos2),
+      })
+    }
+
+    // UART → Border Router
+    const uartDownMs = uartMs(reqBytes, net)
+    blocks.push({
+      key: 'uart-down',
+      label: 'UART → Border Router',
+      group: 'downlink',
+      ms: r(uartDownMs),
+      formula: '((reqBytes + brFramingOH) × uartBitsPerByte × 1000) / uartBaud',
+      params: [
+        p('reqBytes', `${reqBytes} B`),
+        p('brFramingOH', `+${net.brFramingOverheadBytes} B`),
+        p('uartBitsPerByte', `${net.uartBitsPerByte}`),
+        p('uartBaud', `${net.uartBaud} baud`),
+      ],
+      subBreakdown: [sub('Serial transfer', uartDownMs)],
+      pctOfTotal: pct(uartDownMs),
+    })
+
+    // BR / RN thread (downlink)
+    const rnDownMs = net.brProcessingMsPerFrame * Math.max(1, rfDown.fragments) + net.rnThreadDelayMs
+    blocks.push({
+      key: 'rn-down',
+      label: 'BR MCU + RN thread (downlink)',
+      group: 'downlink',
+      ms: r(rnDownMs),
+      formula: 'brProcessingMsPerFrame × fragments + rnThreadDelayMs',
+      params: [
+        p('brProcessingMsPerFrame', `${net.brProcessingMsPerFrame} ms`),
+        p('fragments', `${rfDown.fragments}`),
+        p('rnThreadDelayMs', `${net.rnThreadDelayMs} ms`),
+      ],
+      subBreakdown: [
+        sub(`BR bridging (${rfDown.fragments} frag)`, net.brProcessingMsPerFrame * Math.max(1, rfDown.fragments)),
+        sub('RN RTOS thread', net.rnThreadDelayMs),
+      ],
+      pctOfTotal: pct(rnDownMs),
+    })
+
+    // WiSUN RF (downlink)
+    blocks.push(
+      buildRfBlock('rf-down', 'WiSUN RF (downlink)', 'downlink', rfDown, phy, net, pct(rfDown.totalAirtimeMs)),
+    )
+  }
+
+  // ── METER ─────────────────────────────────────────────────────────────
+  blocks.push({
+    key: 'meter',
+    label: 'Meter DLMS processing',
+    group: 'meter',
+    ms: r(net.meterProcessingMs),
+    formula: 'meterProcessingMs (includes meter internal UART → NIC)',
+    params: [p('meterProcessingMs', `${net.meterProcessingMs} ms`)],
+    subBreakdown: [sub('DLMS request handling', net.meterProcessingMs)],
+    pctOfTotal: pct(net.meterProcessingMs),
+  })
+
+  // ── UPLINK ────────────────────────────────────────────────────────────
+
+  // Randomised response delay
+  if (net.respRandomDelayMaxMs > 0) {
+    const dMs = net.respRandomDelayMaxMs / 2
+    blocks.push({
+      key: 'resp-delay',
+      label: 'NIC randomised response delay',
+      group: 'uplink',
+      ms: r(dMs),
+      formula: 'respRandomDelayMaxMs / 2 (uniform [0, max] average)',
+      params: [p('respRandomDelayMaxMs', `${net.respRandomDelayMaxMs} ms`)],
+      subBreakdown: [sub('Average wait', dMs)],
+      pctOfTotal: pct(dMs),
+    })
+  }
+
+  // WiSUN RF (uplink)
+  blocks.push(
+    buildRfBlock('rf-up', 'WiSUN RF (uplink)', 'uplink', rfUp, phy, net, pct(rfUp.totalAirtimeMs)),
+  )
+
+  // BR / RN thread (uplink)
+  const rnUpMs = net.brProcessingMsPerFrame * Math.max(1, rfUp.fragments) + net.rnThreadDelayMs
+  blocks.push({
+    key: 'rn-up',
+    label: 'BR MCU + RN thread (uplink)',
+    group: 'uplink',
+    ms: r(rnUpMs),
+    formula: 'brProcessingMsPerFrame × fragments + rnThreadDelayMs',
+    params: [
+      p('brProcessingMsPerFrame', `${net.brProcessingMsPerFrame} ms`),
+      p('fragments', `${rfUp.fragments}`),
+      p('rnThreadDelayMs', `${net.rnThreadDelayMs} ms`),
+    ],
+    subBreakdown: [
+      sub(`BR bridging (${rfUp.fragments} frag)`, net.brProcessingMsPerFrame * Math.max(1, rfUp.fragments)),
+      sub('RN RTOS thread', net.rnThreadDelayMs),
+    ],
+    pctOfTotal: pct(rnUpMs),
+  })
+
+  // 6LoWPAN reassembly
+  if (rfUp.reassemblyMs > 0) {
+    blocks.push({
+      key: 'reassembly',
+      label: '6LoWPAN reassembly',
+      group: 'uplink',
+      ms: r(rfUp.reassemblyMs),
+      formula: 'fragments × reassemblyMsPerFragment',
+      params: [
+        p('fragments', `${rfUp.fragments}`),
+        p('reassemblyMsPerFragment', `${net.reassemblyMsPerFragment} ms`),
+      ],
+      subBreakdown: [sub(`${rfUp.fragments} fragments`, rfUp.reassemblyMs)],
+      pctOfTotal: pct(rfUp.reassemblyMs),
+    })
+  }
+
+  // RF-NIC → Pi QoS2
+  if (qos2 > 0) {
+    blocks.push({
+      key: 'qos2-up',
+      label: 'RF-NIC → Pi QoS2 ACK',
+      group: 'uplink',
+      ms: r(qos2),
+      formula: 'piNicQos2Ms + qos2InterPacketMs + E[retries] × qos2RetryWindowMs',
+      params: [
+        p('piNicQos2Ms', `${net.piNicQos2Ms} ms`),
+        p('qos2InterPacketMs', `${net.qos2InterPacketMs} ms`),
+        p('qos2RetryWindowMs', `${net.qos2RetryWindowMs} ms`),
+      ],
+      subBreakdown: [
+        sub('Base handshake', net.piNicQos2Ms),
+        sub('Inter-packet guard', net.qos2InterPacketMs),
+      ],
+      pctOfTotal: pct(qos2),
+    })
+  }
+
+  // Border Router → UART
+  const uartUpMs = uartMs(respBytes, net)
+  blocks.push({
+    key: 'uart-up',
+    label: 'Border Router → UART',
+    group: 'uplink',
+    ms: r(uartUpMs),
+    formula: '((respBytes + brFramingOH) × uartBitsPerByte × 1000) / uartBaud',
+    params: [
+      p('respBytes', `${respBytes} B`),
+      p('brFramingOH', `+${net.brFramingOverheadBytes} B`),
+      p('uartBitsPerByte', `${net.uartBitsPerByte}`),
+      p('uartBaud', `${net.uartBaud} baud`),
+    ],
+    subBreakdown: [sub('Serial transfer', uartUpMs)],
+    pctOfTotal: pct(uartUpMs),
+  })
+
+  // Pi: UDP → MQTT (Python)
+  const gwUpMs = (net.gwUdpToMqttMs + net.osSchedulingMs + net.piSelectPollMs) * net.piLoadFactor
+  blocks.push({
+    key: 'gw-up',
+    label: 'Pi: UDP → MQTT (Python)',
+    group: 'uplink',
+    ms: r(gwUpMs),
+    formula: '(gwUdpToMqttMs + osSchedulingMs + piSelectPollMs) × piLoadFactor',
+    params: [
+      p('gwUdpToMqttMs', `${net.gwUdpToMqttMs} ms`),
+      p('osSchedulingMs', `${net.osSchedulingMs} ms`),
+      p('piSelectPollMs', `${net.piSelectPollMs} ms`),
+      p('piLoadFactor', `×${net.piLoadFactor}`),
+    ],
+    subBreakdown: [
+      sub('Python reassemble+publish', net.gwUdpToMqttMs),
+      sub('OS jitter', net.osSchedulingMs),
+      sub('select()/poll()', net.piSelectPollMs),
+      sub('× load factor', gwUpMs - (net.gwUdpToMqttMs + net.osSchedulingMs + net.piSelectPollMs)),
+    ],
+    pctOfTotal: pct(gwUpMs),
+  })
+
+  // Gateway → NMS (4G)
+  const cellSerialUp = serializeMs(respBytes + net.mqttOverheadBytes, net.cellularThroughputKbps)
+  blocks.push({
+    key: 'cell-up',
+    label: 'Gateway → NMS (4G/EC200U)',
+    group: 'uplink',
+    ms: r(budget.stages.find((s) => s.key === 'cell-up')?.ms ?? 0),
+    formula: '(cellularRttMs / 2) + serialize(respBytes + mqttOH, cellKbps) + mqttHandshake',
+    params: [
+      p('cellularRttMs', `${net.cellularRttMs} ms`),
+      p('cellularRtt/2', `${r(cellOneWay)} ms`),
+      p('respBytes', `${respBytes} B`),
+      p('mqttOverhead', `${net.mqttOverheadBytes} B`),
+      p('cellThroughput', `${net.cellularThroughputKbps} kbps`),
+      p('mqttQos', `${net.mqttQos}`),
+      p('handshake', `${r(hs)} ms`),
+    ],
+    subBreakdown: [
+      sub('4G one-way', cellOneWay),
+      sub('MQTT serialize', cellSerialUp),
+      sub(`QoS${net.mqttQos} handshake`, hs),
+    ],
+    pctOfTotal: pct(budget.stages.find((s) => s.key === 'cell-up')?.ms ?? 0),
+  })
+
+  // NMS → HES
+  blocks.push({
+    key: 'nms-hes-up',
+    label: 'NMS → HES',
+    group: 'uplink',
+    ms: r(net.brokerToHesMs),
+    formula: 'brokerToHesMs',
+    params: [p('brokerToHesMs', `${net.brokerToHesMs} ms`)],
+    subBreakdown: [],
+    pctOfTotal: pct(net.brokerToHesMs),
+  })
+
+  return {
+    blocks,
+    totalMs: r(total),
+    downlinkMs: r(budget.downlinkMs),
+    meterMs: r(budget.meterMs),
+    uplinkMs: r(budget.uplinkMs),
+    reqBytes,
+    respBytes,
+    isPush,
+  }
+}
+
+/** Build an RF stage block with full airtime sub-breakdown. */
+function buildRfBlock(
+  key: string,
+  label: string,
+  group: 'downlink' | 'uplink',
+  air: AirtimeResult,
+  phy: PhyProfile,
+  net: NetworkParams,
+  pctOfTotal: number,
+): FlowBlockDetail {
+  const fhMs = net.freqHoppingEnabled ? air.fragments * (net.unicastDwellMs / 2) : 0
+  const subBreakdown: FlowSubBreakdown[] = [
+    sub(`Frame serialize (${air.onAirBytes} B on-air)`, air.frameAirtimeMs),
+  ]
+  if (air.ackAirtimeMs > 0) subBreakdown.push(sub(`MAC ACK (${air.fragments} frag)`, air.ackAirtimeMs))
+  subBreakdown.push(sub(`CSMA/CA + IFS (${air.fragments} frag)`, air.fragments * (net.csmaAvgBackoffMs + net.ifsMs)))
+  if (fhMs > 0) subBreakdown.push(sub(`FH rendezvous (${air.fragments} × ${net.unicastDwellMs}/2)`, fhMs))
+  if (net.hopCount > 1) subBreakdown.push(sub(`× ${net.hopCount} hops`, air.perHopMs * (net.hopCount - 1)))
+  if (air.retransFactor > 1.001)
+    subBreakdown.push(sub(`× PER retrans (×${r(air.retransFactor, 3)})`, air.totalAirtimeMs - air.perHopMs * net.hopCount))
+
+  return {
+    key,
+    label,
+    group,
+    ms: r(air.totalAirtimeMs),
+    formula: '(frameAirtime + ackAirtime + CSMA + FH) × hopCount × retransFactor',
+    params: [
+      p('dataRate', `${phy.dataRateKbps} kbps`),
+      p('appBytes', `${air.appBytes} B`),
+      p('fragments', `${air.fragments}`),
+      p('onAirBytes', `${air.onAirBytes} B`),
+      p('hopCount', `${net.hopCount}`),
+      p('PER', `${(net.packetErrorRate * 100).toFixed(1)}%`),
+      p('retransFactor', `×${r(air.retransFactor, 3)}`),
+      p('useMacAck', net.useMacAck ? 'yes' : 'no'),
+      ...(net.freqHoppingEnabled ? [p('unicastDwellMs', `${net.unicastDwellMs} ms`)] : []),
+    ],
+    subBreakdown,
+    pctOfTotal,
   }
 }

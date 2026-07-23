@@ -20,12 +20,14 @@ import { parseProfile } from './lib/logParser'
 import {
   computeBatch,
   computeCapacity,
+  computeFlowDetail,
   computeSessionBudget,
   computeStageBudget,
   evaluateProfiles,
 } from './lib/engine'
 import { fmtMs, fmtNum, fmtRate, fmtBytes } from './lib/format'
 import { ControlPanel } from './components/ControlPanel'
+import { DataFlowDiagram } from './components/DataFlowDiagram'
 import { PipelineDiagram } from './components/PipelineDiagram'
 import { CapacityPanel } from './components/CapacityPanel'
 import { LatencyPanel } from './components/LatencyPanel'
@@ -90,6 +92,13 @@ export default function App() {
       measuredRttMs: rep.rttMs,
     })
   }, [stats, phy, net, sessionBudget])
+
+  // Full per-stage formula breakdown for the data-flow block diagram.
+  const flowDetail = useMemo(() => {
+    const rep = [...stats.transactions].sort((a, b) => b.respBytes - a.respBytes)[0]
+    if (!rep) return computeFlowDetail(0, 0, phy, net)
+    return computeFlowDetail(rep.reqBytes, rep.respBytes, phy, net, { isPush: rep.isPush })
+  }, [stats, phy, net])
 
   const verdict =
     capacity.statusAtTarget === 'ok'
@@ -196,6 +205,8 @@ export default function App() {
               icon={<Clock className="h-4 w-4" />}
             />
           </div>
+
+          <DataFlowDiagram detail={flowDetail} />
 
           <PipelineDiagram budget={repBudget} />
 
