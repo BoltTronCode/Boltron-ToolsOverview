@@ -6,6 +6,7 @@ import { DEFAULT_NETWORK } from '../src/config/networkConfig.ts'
 import { parseProfile } from '../src/lib/logParser.ts'
 import {
   computeAirtime,
+  computeBatch,
   computeCapacity,
   computeSessionBudget,
   evaluateProfiles,
@@ -60,3 +61,35 @@ for (const r of rows) {
 }
 
 console.log(`\nAssoc timeout = ${idealNet.assocTimeoutMs / 1000}s`)
+
+console.log('\n=== Stage timing matrix · Block Load 7 Day @ 100 nodes (defaults) ===')
+const b7 = parseProfile(DLMS_PROFILES.find((p) => p.id === 'block-7d')!.raw)
+const batch = computeBatch(b7, phy, BASE, poll, 100)
+for (const s of batch.stages) {
+  console.log(
+    `${s.label.padEnd(26)} ${s.serial ? 'serial  ' : 'parallel'} ` +
+      `perPkt=${s.perPacketMs.toFixed(1)}ms perNode=${s.perNodeMs.toFixed(0)}ms agg=${(s.aggregateMs / 1000).toFixed(2)}s`,
+  )
+}
+console.log(
+  `Bottleneck=${batch.bottleneck.label} throughput=${(batch.batchThroughputMs / 1000).toFixed(1)}s ` +
+    `completion=${(batch.batchCompletionMs / 1000).toFixed(1)}s`,
+)
+console.log(
+  `BR backlog=${batch.brBacklogFrames}/${batch.brBufferFrames} overflow=${batch.brOverflow} ` +
+    `assocGap=${(batch.assocGapMs / 1000).toFixed(1)}s assocOk=${batch.assocOk} oversize=${batch.oversizeFrame}`,
+)
+
+console.log('\n=== Fragmentation impact (Resp airtime, 797B, fsk-50) ===')
+for (const fp of [1280, 255, 90]) {
+  const a = computeAirtime(797, phy, { ...BASE, fragmentPayloadBytes: fp }, true)
+  console.log(`fragSize=${String(fp).padStart(4)}B -> frags=${a.fragments} air=${a.totalAirtimeMs.toFixed(1)}ms reasm=${a.reassemblyMs.toFixed(1)}ms`)
+}
+const noFrag = computeAirtime(2000, phy, { ...BASE, fragmentationEnabled: false }, true)
+console.log(`No-frag 2000B (PSDU cap ${BASE.maxPhyPayloadBytes}) -> oversize=${noFrag.oversize}`)
+
+console.log('\n=== UART serial reality (115200 vs 921600 baud, 797B) ===')
+for (const baud of [115200, 921600]) {
+  const ms = ((797 + BASE.brFramingOverheadBytes) * BASE.uartBitsPerByte * 1000) / baud
+  console.log(`${String(baud).padStart(7)} baud -> ${ms.toFixed(1)}ms/frame · 100 frames = ${(ms * 100 / 1000).toFixed(2)}s`)
+}

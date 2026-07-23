@@ -39,18 +39,19 @@ export function ProfileExplorer({
             <tr>
               <th className="px-3 py-2 font-medium">#</th>
               <th className="px-3 py-2 font-medium">Request APDU</th>
-              <th className="px-3 py-2 text-right font-medium">Req</th>
+              <th className="px-3 py-2 text-right font-medium">Req B</th>
+              <th className="px-3 py-2 text-right font-medium">Req air</th>
               <th className="px-3 py-2 font-medium">Response APDU</th>
-              <th className="px-3 py-2 text-right font-medium">Resp</th>
-              <th className="px-3 py-2 text-right font-medium">RF air</th>
+              <th className="px-3 py-2 text-right font-medium">Resp B</th>
+              <th className="px-3 py-2 text-right font-medium">Frag</th>
+              <th className="px-3 py-2 text-right font-medium">Resp air</th>
               <th className="px-3 py-2 text-right font-medium">Measured</th>
             </tr>
           </thead>
           <tbody className="divide-y divide-white/5">
             {stats.transactions.map((t) => {
-              const air =
-                computeAirtime(t.reqBytes, phy, net).totalAirtimeMs +
-                computeAirtime(t.respBytes, phy, net).totalAirtimeMs
+              const reqAir = computeAirtime(t.reqBytes, phy, net, false)
+              const respAir = computeAirtime(t.respBytes, phy, net, true)
               return (
                 <tr key={t.seq} className="hover:bg-white/[0.03]">
                   <td className="px-3 py-1.5 text-slate-500">{t.seq + 1}</td>
@@ -60,11 +61,21 @@ export function ProfileExplorer({
                   <td className="px-3 py-1.5 text-right stat-value text-slate-400">
                     {t.reqBytes || '—'}
                   </td>
+                  <td className="px-3 py-1.5 text-right stat-value text-brand-300">
+                    {t.reqBytes ? fmtMs(reqAir.totalAirtimeMs) : '—'}
+                  </td>
                   <td className="px-3 py-1.5 text-slate-300">{t.respApdu ?? '—'}</td>
                   <td className="px-3 py-1.5 text-right stat-value text-slate-400">
                     {t.respBytes || '—'}
                   </td>
-                  <td className="px-3 py-1.5 text-right stat-value text-brand-300">{fmtMs(air)}</td>
+                  <td
+                    className={`px-3 py-1.5 text-right stat-value ${respAir.oversize ? 'text-rose-300' : 'text-slate-500'}`}
+                  >
+                    {t.respBytes ? (respAir.oversize ? '⚠' : respAir.fragments) : '—'}
+                  </td>
+                  <td className="px-3 py-1.5 text-right stat-value text-teal-300">
+                    {t.respBytes ? fmtMs(respAir.totalAirtimeMs) : '—'}
+                  </td>
                   <td className="px-3 py-1.5 text-right stat-value text-cyan-300">
                     {t.rttMs != null ? fmtMs(t.rttMs) : '—'}
                   </td>
@@ -75,8 +86,10 @@ export function ProfileExplorer({
         </table>
       </div>
       <p className="mt-2 text-[11px] text-slate-500">
-        "RF air" is the modelled WiSUN airtime (both directions, incl. hops &amp; retransmissions).
-        "Measured" is the request→response gap captured at the NMS.
+        "Req air" / "Resp air" are the modelled WiSUN airtimes per direction (incl. hops,
+        retransmissions, MAC ACK, CSMA &amp; FH rendezvous). "Frag" = 6LoWPAN fragments for the
+        response (⚠ = exceeds PSDU cap with fragmentation off). "Measured" is the request→response
+        gap captured at the NMS.
       </p>
     </Card>
   )

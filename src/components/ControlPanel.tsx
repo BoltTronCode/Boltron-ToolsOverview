@@ -19,6 +19,9 @@ import {
   ShieldCheck,
   Users,
   Zap,
+  Split,
+  Router,
+  Timer,
 } from 'lucide-react'
 import clsx from 'clsx'
 import { PARAM_GROUPS, type ParamField } from '../config/paramSchema'
@@ -35,6 +38,9 @@ const ICONS: Record<string, typeof RadioTower> = {
   Signal,
   Gauge,
   ShieldCheck,
+  Split,
+  Router,
+  Timer,
 }
 
 interface Props {
