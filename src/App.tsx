@@ -32,7 +32,7 @@ import { LatencyPanel } from './components/LatencyPanel'
 import { ProfileExplorer } from './components/ProfileExplorer'
 import { SupportMatrix } from './components/SupportMatrix'
 import { StageTimingMatrix } from './components/StageTimingMatrix'
-import { Stat, Card } from './components/ui'
+import { Stat } from './components/ui'
 
 export default function App() {
   const [phyId, setPhyId] = useState(DEFAULT_PHY_ID)
@@ -220,66 +220,8 @@ export default function App() {
 
           <ProfileExplorer stats={stats} phy={phy} net={net} />
 
-          <Card className="card-pad text-[11px] leading-relaxed text-slate-400">
-            <p className="mb-2 text-xs font-semibold text-slate-200">
-              Solution-architecture notes &amp; caveats (CTO view)
-            </p>
-            <ul className="grid list-disc gap-1 pl-4 sm:grid-cols-2">
-              <li>
-                <span className="text-slate-300">Frequency hopping:</span> all nodes hop across every
-                channel on time-scheduled patterns — they are <em>not</em> statically split across the
-                20 channels. FH matters at TX time (the sender must hit the receiver's current unicast
-                slot ≈ dwell/2 wait). One BR = one radio, so FH spreads interference but does not
-                multiply BR throughput; the modelled per-frame FH margin is included in airtime.
-              </li>
-              <li>
-                <span className="text-slate-300">UART is the quiet killer:</span> at 115200 baud a
-                ~800 B frame ≈ 70 ms; both directions are strict serial queues. Raise the baud or
-                enable full-duplex if UART becomes the bottleneck.
-              </li>
-              <li>
-                <span className="text-slate-300">Pi Zero 2 W reality:</span> CPython is GIL-bound, so
-                the bridge is effectively a single consumer; other Debian services, TLS and logging
-                add the load factor. Non-RT scheduling adds per-op jitter.
-              </li>
-              <li>
-                <span className="text-slate-300">Throttling helps associations:</span> admitting the
-                fleet in waves keeps each meter's inter-message gap under the timeout and bounds BR
-                backlog — at the cost of a longer total cycle.
-              </li>
-              <li>
-                <span className="text-slate-300">Not yet modelled (future):</span> WiSUN join/EAPOL
-                authentication &amp; PAN formation time, RPL route repair, node keep-alives, downlink
-                broadcast-schedule latency, TCP slow-start / MQTT keepalive, meter NVM-write stalls,
-                and Pi thermal throttling.
-              </li>
-              <li>
-                <span className="text-slate-300">Security:</span> DLMS GCM authentication/encryption
-                is already inside the captured frame sizes; WiSUN adds its own MAC-layer AES-CCM
-                (counted in the MAC/security header bytes).
-              </li>
-            </ul>
-          </Card>
-
-          <Card className="card-pad text-[11px] leading-relaxed text-slate-500">
-            <p>
-              <span className="font-semibold text-slate-400">How it works — </span>
-              Real NMS captures are parsed to derive per-transaction frame sizes and measured
-              timings. The engine adds 6LoWPAN/IPv6/UDP + 802.15.4 MAC + PHY overhead, CSMA/CA,
-              mesh hops and PER-driven retransmissions to compute WiSUN airtime, then layers the
-              Pi↔RF-NIC QoS2 (exactly-once) engine, UART, gateway, meter and 4G/MQTT (QoS
-              {net.mqttQos}) latency. Fleet capacity uses a <span className="text-slate-400">parallel
-              poll model</span>: every meter advances step-by-step over the single BR radio, and the
-              worst-case inter-message gap must stay under the meter's association inactivity timeout
-              ({fmtMs(net.assocTimeoutMs)}) or the association is dropped. The supported node count is
-              the minimum across the RF channel, association timeout, UART, 4G/MQTT and gateway CPU.
-              All parameters on the left are live — tune them to match your deployment.
-            </p>
-          </Card>
-
           <footer className="pt-2 text-center text-[11px] text-slate-600">
-            Built by <span className="text-slate-400">Bhautik Ramoliya</span> ·{' '}
-            <span className="text-slate-400">Boltron Telesystems Private Limited</span>
+            Boltron Telesystems Private Limited
           </footer>
         </main>
       </div>
