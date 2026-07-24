@@ -25,9 +25,10 @@ import {
 } from 'lucide-react'
 import clsx from 'clsx'
 import { PARAM_GROUPS, type ParamField } from '../config/paramSchema'
-import type { NetworkParams, PhyProfile, UseCase } from '../lib/types'
+import type { NetworkParams, PhyProfile, TopologyScenario, UseCase } from '../lib/types'
 import { PHY_PROFILES } from '../config/phyProfiles'
 import { USE_CASES } from '../config/useCases'
+import { TOPOLOGY_SCENARIOS } from '../config/topologyScenarios'
 import { DLMS_PROFILES } from '../config/dlmsProfiles'
 import { Card } from './ui'
 
@@ -47,11 +48,13 @@ interface Props {
   phyId: string
   dlmsId: string
   useCaseId: string
+  topologyId: string
   net: NetworkParams
   targetNodes: number
   onPhy: (id: string) => void
   onDlms: (id: string) => void
   onUseCase: (id: string) => void
+  onTopology: (id: string) => void
   onNet: (patch: Partial<NetworkParams>) => void
   onTargetNodes: (n: number) => void
   onIdealRf: () => void
@@ -216,7 +219,7 @@ function CollapsibleGroup({
         onClick={() => setOpen((o) => !o)}
         className="flex w-full items-center justify-between px-4 py-3"
       >
-        <span className="flex items-center gap-2 text-sm font-semibold text-slate-100">
+        <span className="flex items-center gap-2 text-sm font-semibold text-slate-900">
           <span className="text-brand-400">{icon}</span>
           {title}
         </span>
@@ -231,11 +234,13 @@ export function ControlPanel({
   phyId,
   dlmsId,
   useCaseId,
+  topologyId,
   net,
   targetNodes,
   onPhy,
   onDlms,
   onUseCase,
+  onTopology,
   onNet,
   onTargetNodes,
   onIdealRf,
@@ -245,7 +250,7 @@ export function ControlPanel({
     <div className="space-y-3">
       <Card className="card-pad space-y-3">
         <div className="flex items-center justify-between">
-          <h2 className="text-sm font-semibold text-slate-100">Scenario</h2>
+          <h2 className="text-sm font-semibold text-slate-900">Scenario</h2>
           <button className="btn-ghost !px-2.5 !py-1.5 text-xs" onClick={onReset}>
             <RotateCcw className="h-3.5 w-3.5" /> Reset
           </button>
@@ -273,6 +278,14 @@ export function ControlPanel({
           value={useCaseId}
           render={(u) => u.label}
           onChange={onUseCase}
+        />
+        <Selector<TopologyScenario>
+          label="Fleet topology scenario"
+          icon={<Router className="h-3.5 w-3.5" />}
+          items={TOPOLOGY_SCENARIOS}
+          value={topologyId}
+          render={(t) => t.label}
+          onChange={onTopology}
         />
 
         <div>

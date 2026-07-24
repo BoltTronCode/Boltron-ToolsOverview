@@ -60,7 +60,7 @@ export function StageTimingMatrix({ batch }: { batch: BatchAnalysis }) {
         ].map((t) => (
           <div key={t.label} className="rounded-lg border border-white/5 bg-base-850/60 px-3 py-2">
             <div className="label">{t.label}</div>
-            <div className="stat-value mt-0.5 truncate text-sm font-bold text-slate-100" title={String(t.value)}>
+            <div className="stat-value mt-0.5 truncate text-sm font-bold text-slate-900" title={String(t.value)}>
               {t.value}
             </div>
             <div className="text-[10px] text-slate-500">{t.hint}</div>
@@ -98,7 +98,7 @@ export function StageTimingMatrix({ batch }: { batch: BatchAnalysis }) {
                   </td>
                   <td className="px-3 py-2 text-right stat-value text-slate-300">{fmtMs(s.perPacketMs)}</td>
                   <td className="px-3 py-2 text-right stat-value text-slate-300">{fmtMs(s.perNodeMs)}</td>
-                  <td className="px-3 py-2 text-right stat-value font-semibold text-slate-100">
+                  <td className="px-3 py-2 text-right stat-value font-semibold text-slate-900">
                     {s.serial ? fmtMs(s.aggregateMs) : <span className="text-slate-500">parallel</span>}
                   </td>
                   <td className="px-3 py-2">

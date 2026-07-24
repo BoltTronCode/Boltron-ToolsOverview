@@ -15,14 +15,14 @@ export default {
         mono: ['JetBrains Mono', 'ui-monospace', 'SFMono-Regular', 'monospace'],
       },
       colors: {
-        // Boltron brand-inspired palette
+        // Boltron brand-inspired light palette
         base: {
-          950: '#070b14',
-          900: '#0b1220',
-          850: '#0f1729',
-          800: '#131c30',
-          700: '#1c2740',
-          600: '#26334f',
+          950: '#ffffff',
+          900: '#ffffff',
+          850: '#f8fafc',
+          800: '#eef2f7',
+          700: '#e2e8f0',
+          600: '#cbd5e1',
         },
         brand: {
           50: '#eef6ff',
@@ -46,8 +46,8 @@ export default {
         },
       },
       boxShadow: {
-        glow: '0 0 0 1px rgba(31,120,255,0.25), 0 8px 40px -12px rgba(31,120,255,0.45)',
-        card: '0 1px 0 0 rgba(255,255,255,0.04) inset, 0 12px 40px -20px rgba(0,0,0,0.8)',
+        glow: '0 0 0 1px rgba(31,120,255,0.18), 0 10px 30px -18px rgba(31,120,255,0.35)',
+        card: '0 1px 0 0 rgba(255,255,255,0.9) inset, 0 12px 32px -24px rgba(15,23,42,0.16)',
       },
       backgroundImage: {
         'grid-fade':

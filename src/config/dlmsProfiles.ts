@@ -11,6 +11,7 @@
  * Author  : Bhautik Ramoliya
  * Company : Boltron Telesystems Private Limited
  */
+import fotaRaw from './fotaMeterLog.ts'
 
 export interface DlmsProfileDef {
   id: string
@@ -189,6 +190,13 @@ export const DLMS_PROFILES: DlmsProfileDef[] = [
     category: 'Control',
     description: 'Relay/disconnect control command with confirmation, followed by a status PUSH.',
     raw: DC,
+  },
+  {
+    id: 'meter-fota',
+    label: 'Meter FOTA Campaign',
+    category: 'Firmware Update',
+    description: 'Real meter FOTA log: long downlink command/chunk stream with short acknowledgements and final status push.',
+    raw: fotaRaw,
   },
   {
     id: 'block-4h',

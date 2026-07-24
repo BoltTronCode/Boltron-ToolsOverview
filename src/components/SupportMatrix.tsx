@@ -85,7 +85,7 @@ export function SupportMatrix({
               return (
                 <tr key={r.id} className="hover:bg-white/[0.03]">
                   <td className="px-3 py-2">
-                    <div className="font-medium text-slate-200">{r.label}</div>
+                    <div className="font-medium text-slate-800">{r.label}</div>
                     <div className="text-[10px] text-slate-500">{r.category}</div>
                   </td>
                   <td className="px-3 py-2 text-right stat-value text-slate-400">

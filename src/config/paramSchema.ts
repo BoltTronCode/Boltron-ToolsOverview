@@ -34,7 +34,7 @@ export const PARAM_GROUPS: ParamGroup[] = [
     title: 'WiSUN RF / Link Layer',
     icon: 'RadioTower',
     fields: [
-      { key: 'hopCount', label: 'Mesh hop count', kind: 'slider', min: 1, max: 8, step: 1, hint: 'BR ↔ meter depth; multiplies airtime.' },
+      { key: 'hopCount', label: 'Representative air hops', kind: 'slider', min: 1, max: 8, step: 1, hint: 'Used for the single-meter latency diagram. 1 = direct BR→meter, 2 = one relay, ... Fleet capacity uses the topology scenario selector.' },
       { key: 'packetErrorRate', label: 'Packet error rate', kind: 'slider', min: 0, max: 0.4, step: 0.01, hint: 'Drives expected retransmissions per hop.' },
       { key: 'maxPhyPayloadBytes', label: 'Max PHY payload (frag)', unit: 'B', kind: 'number', min: 90, max: 2043, step: 1 },
       { key: 'macHeaderBytes', label: 'MAC header + security', unit: 'B', kind: 'number', min: 9, max: 64, step: 1 },
@@ -54,7 +54,8 @@ export const PARAM_GROUPS: ParamGroup[] = [
     title: '6LoWPAN Fragmentation / Reassembly',
     icon: 'Split',
     fields: [
-      { key: 'fragmentationEnabled', label: 'Fragmentation enabled', kind: 'toggle', hint: 'Response-only (uplink); requests are small. Off = single frame (must fit PSDU cap).' },
+      { key: 'fragmentationEnabled', label: 'Fragmentation enabled', kind: 'toggle', hint: '6LoWPAN fragmentation for oversized IPv6/UDP packets. Off = single frame must fit PSDU cap.' },
+      { key: 'fragmentRequests', label: 'Also fragment requests', kind: 'toggle', hint: 'Enable for downlink-heavy cases such as FOTA chunk transfer.' },
       { key: 'fragmentPayloadBytes', label: 'Fragment payload size', unit: 'B', kind: 'slider', min: 40, max: 1280, step: 8, hint: 'Datagram bytes carried per L2 fragment.' },
       { key: 'fragHeaderBytes', label: 'Fragment header', unit: 'B', kind: 'number', min: 0, max: 12, step: 1 },
       { key: 'reassemblyMsPerFragment', label: 'Reassembly / fragment', unit: 'ms', kind: 'number', min: 0, max: 20, step: 0.1 },
@@ -106,8 +107,8 @@ export const PARAM_GROUPS: ParamGroup[] = [
     title: 'Raspberry Pi 2 W · Debian Service',
     icon: 'Cpu',
     fields: [
-      { key: 'gwMqttToUdpMs', label: 'Python MQTT→UDP / pkt', unit: 'ms', kind: 'number', min: 0.1, max: 50, step: 0.1, hint: 'Parse + IPv6 lookup + build UDP + serial write.' },
-      { key: 'gwUdpToMqttMs', label: 'Python UDP→MQTT / pkt', unit: 'ms', kind: 'number', min: 0.1, max: 50, step: 0.1 },
+      { key: 'gwMqttToUdpMs', label: 'Python MQTT→UDP / pkt', unit: 'ms', kind: 'number', min: 0.1, max: 50, step: 0.1, hint: 'MQTT parse + meterID/IPv6 lookup + UDP send into Linux/wfantund path.' },
+      { key: 'gwUdpToMqttMs', label: 'Python UDP→MQTT / pkt', unit: 'ms', kind: 'number', min: 0.1, max: 50, step: 0.1, hint: 'Receive from Linux/wfantund path + reverse lookup + MQTT publish.' },
       { key: 'piConcurrency', label: 'Effective worker threads', kind: 'number', min: 1, max: 4, step: 1, hint: 'CPython GIL usually limits this to ~1.' },
       { key: 'piLoadFactor', label: 'Other-services load factor', kind: 'slider', min: 1, max: 3, step: 0.1 },
       { key: 'meterProcessingMs', label: 'Meter DLMS processing', unit: 'ms', kind: 'number', min: 0, max: 1000, step: 5 },
@@ -118,9 +119,9 @@ export const PARAM_GROUPS: ParamGroup[] = [
     title: 'Meter Association / QoS2 Engine',
     icon: 'ShieldCheck',
     fields: [
-      { key: 'assocTimeoutMs', label: 'Association inactivity timeout', unit: 'ms', kind: 'slider', min: 1000, max: 120000, step: 1000, hint: 'If the next request to a meter arrives after this gap, the meter drops the association.' },
+      { key: 'assocTimeoutMs', label: 'Association inactivity timeout', unit: 'ms', kind: 'slider', min: 1000, max: 120000, step: 1000, hint: 'Default deployment baseline is 20,000 ms. In parallel poll mode, if the next request arrives later than this, the meter drops the association.' },
       { key: 'respRandomDelayMaxMs', label: 'Randomised response delay (max)', unit: 'ms', kind: 'slider', min: 0, max: 2000, step: 10, hint: 'NIC buffers the response and sends after a random delay in [0,max]; avg = max/2.' },
-      { key: 'piNicQos2', label: 'Pi ↔ RF-NIC QoS2 (exactly-once)', kind: 'toggle' },
+      { key: 'piNicQos2', label: 'Local app↔NIC QoS2', kind: 'toggle' },
       { key: 'piNicQos2Ms', label: 'QoS2 base overhead', unit: 'ms', kind: 'number', min: 0, max: 50, step: 0.5 },
       { key: 'qos2RetryWindowMs', label: 'QoS2 retry window', unit: 'ms', kind: 'number', min: 10, max: 2000, step: 10 },
       { key: 'qos2MaxRetries', label: 'QoS2 max retries', kind: 'number', min: 0, max: 10, step: 1 },

@@ -23,6 +23,7 @@ import type {
   PhyProfile,
   ProfileStats,
   StageTiming,
+  TopologyScenario,
   UseCase,
 } from './types'
 
@@ -55,13 +56,14 @@ const ZERO_AIRTIME: AirtimeResult = {
  * lower-layer headers, PHY preamble/header, MAC ACK, CSMA/CA, per-frame
  * frequency-hopping rendezvous wait, mesh hops and PER retransmissions.
  *
- * Fragmentation is applied only when `isResponse` is true (the deployment
- * fragments the large uplink responses; downlink requests are small).
+ * By default large uplink responses fragment and downlink requests do not.
+ * `net.fragmentRequests` enables request fragmentation too (e.g. FOTA chunks).
  */
-export function computeAirtime(
+function computeAirtimeForHops(
   appBytes: number,
   phy: PhyProfile,
   net: NetworkParams,
+  airHops: number,
   isResponse = true,
 ): AirtimeResult {
   if (appBytes <= 0) return { ...ZERO_AIRTIME }
@@ -69,25 +71,19 @@ export function computeAirtime(
   const rate = phy.dataRateKbps
   const perFrameFixed = phy.preambleBytes + phy.phyHeaderBytes + net.macHeaderBytes + net.macFcsBytes
 
-  // Fragment only large uplink responses; requests always go as a single frame.
-  const fragAllowed = net.fragmentationEnabled && isResponse
+  const fragAllowed = net.fragmentationEnabled && (isResponse || net.fragmentRequests)
   const fragSize = Math.max(1, net.fragmentPayloadBytes)
-  // With fragmentation off, the datagram must ride in a single frame; with it on
-  // it is split into `fragSize`-byte pieces.
   const fragments = fragAllowed ? Math.max(1, Math.ceil(appBytes / fragSize)) : 1
   const fragHdr = fragments > 1 ? net.fragHeaderBytes : 0
-  // A single frame cannot exceed the hard PSDU cap.
   const oversize =
     fragments === 1 && appBytes + net.lowpanHeaderBytes + fragHdr + perFrameFixed > net.maxPhyPayloadBytes
 
-  // Total on-air bytes = payload + per-fragment (6LoWPAN + frag + MAC + PHY) overhead.
   const onAirBytes = appBytes + fragments * (net.lowpanHeaderBytes + fragHdr + perFrameFixed)
   const frameAirtimeMs = serializeMs(onAirBytes, rate)
 
   const ackFrameBytes = phy.preambleBytes + phy.phyHeaderBytes + net.macAckBytes
   const ackAirtimeMs = net.useMacAck ? fragments * serializeMs(ackFrameBytes, rate) : 0
 
-  // Frequency hopping: each frame waits on average half a dwell for the RX slot.
   const fhMs = net.freqHoppingEnabled ? fragments * (net.unicastDwellMs / 2) : 0
   const csmaMs = fragments * (net.csmaAvgBackoffMs + net.ifsMs) + fhMs
 
@@ -95,7 +91,7 @@ export function computeAirtime(
 
   const perHopMs = frameAirtimeMs + ackAirtimeMs + csmaMs
   const retransFactor = net.packetErrorRate >= 1 ? Infinity : 1 / (1 - net.packetErrorRate)
-  const totalAirtimeMs = perHopMs * Math.max(1, net.hopCount) * retransFactor
+  const totalAirtimeMs = perHopMs * Math.max(1, airHops) * retransFactor
 
   return {
     appBytes,
@@ -110,6 +106,15 @@ export function computeAirtime(
     reassemblyMs,
     oversize,
   }
+}
+
+export function computeAirtime(
+  appBytes: number,
+  phy: PhyProfile,
+  net: NetworkParams,
+  isResponse = true,
+): AirtimeResult {
+  return computeAirtimeForHops(appBytes, phy, net, Math.max(1, net.hopCount), isResponse)
 }
 
 /** Expected QoS2 latency (ms) on the local Pi<->RF-NIC link, incl. retries. */
@@ -169,39 +174,39 @@ export function computeStageBudget(
     })
     stages.push({
       key: 'cell-down',
-      label: 'NMS → Gateway (4G)',
+      label: 'NMS → Gateway (EC200U/4G)',
       group: 'downlink',
       ms: cellOneWay + serializeMs(reqBytes + net.mqttOverheadBytes, net.cellularThroughputKbps) + hs,
       detail: `Cellular one-way + MQTT publish (${reqBytes} B) + QoS${net.mqttQos} handshake`,
     })
     stages.push({
       key: 'gw-down',
-      label: 'Pi: MQTT → UDP (Python)',
+      label: 'Pi app: MQTT → IPv6/UDP',
       group: 'downlink',
       ms: piCpu(net.gwMqttToUdpMs),
-      detail: `Parse + IPv6 lookup + build UDP · ×${net.piLoadFactor} load, +OS ${net.osSchedulingMs}ms`,
+      detail: `Parse + MeterID→IPv6 lookup + send into Linux/wfantund path · ×${net.piLoadFactor} load, +OS ${net.osSchedulingMs}ms`,
     })
     if (qos2 > 0)
       stages.push({
         key: 'qos2-down',
-        label: 'Pi → RF-NIC QoS2',
+        label: 'Local app↔NIC QoS2',
         group: 'downlink',
         ms: qos2,
         detail: `Exactly-once handshake (retry win ${net.qos2RetryWindowMs}ms, ≤${net.qos2MaxRetries} retries)`,
       })
     stages.push({
       key: 'uart-down',
-      label: 'UART → Border Router',
+      label: 'wfantund / Spinel → UART',
       group: 'downlink',
       ms: uartMs(reqBytes, net),
-      detail: `Pi ↔ BR serial @ ${net.uartBaud} baud (one packet at a time)`,
+      detail: `Linux wfantund marshals IPv6/UDP into Spinel/HDLC over UART @ ${net.uartBaud} baud`,
     })
     stages.push({
       key: 'rn-down',
-      label: 'BR / RN thread (downlink)',
+      label: 'BR NWP / RN thread (downlink)',
       group: 'downlink',
       ms: rnMs(rfDown.fragments),
-      detail: `BR bridging + RN RTOS thread delay ${net.rnThreadDelayMs}ms`,
+      detail: `BR/NWP packet handling + RN RTOS thread delay ${net.rnThreadDelayMs}ms`,
     })
     stages.push({
       key: 'rf-down',
@@ -237,10 +242,10 @@ export function computeStageBudget(
   })
   stages.push({
     key: 'rn-up',
-    label: 'BR / RN thread (uplink)',
+    label: 'BR NWP / RN thread (uplink)',
     group: 'uplink',
     ms: rnMs(rfUp.fragments),
-    detail: `RN RTOS thread delay ${net.rnThreadDelayMs}ms + BR bridging`,
+    detail: `RN RTOS thread delay ${net.rnThreadDelayMs}ms + BR/NWP packet handling`,
   })
   if (rfUp.reassemblyMs > 0)
     stages.push({
@@ -253,24 +258,24 @@ export function computeStageBudget(
   if (qos2 > 0)
     stages.push({
       key: 'qos2-up',
-      label: 'RF-NIC → Pi QoS2',
+      label: 'Local NIC↔app QoS2 ACK',
       group: 'uplink',
       ms: qos2,
       detail: 'Exactly-once handshake between RF NIC and Pi',
     })
   stages.push({
     key: 'uart-up',
-    label: 'Border Router → UART',
+    label: 'UART → wfantund / Spinel',
     group: 'uplink',
     ms: uartMs(respBytes, net),
-    detail: `Pi ↔ BR serial @ ${net.uartBaud} baud (one packet at a time)`,
+    detail: `BR/NWP sends Spinel/HDLC over UART @ ${net.uartBaud} baud into Linux wfantund`,
   })
   stages.push({
     key: 'gw-up',
-    label: 'Pi: UDP → MQTT (Python)',
+    label: 'Pi app: IPv6/UDP → MQTT',
     group: 'uplink',
     ms: piCpu(net.gwUdpToMqttMs),
-    detail: `Reverse IPv6 → MeterID lookup + MQTT publish · ×${net.piLoadFactor} load`,
+    detail: `Receive from Linux/wfantund path + reverse IPv6→MeterID lookup + MQTT publish · ×${net.piLoadFactor} load`,
   })
   stages.push({
     key: 'cell-up',
@@ -339,35 +344,64 @@ export function computeSessionBudget(
   }
 }
 
-/** Channel busy time (ms) contributed by one meter running the profile once. */
-export function perNodeChannelMs(
+/** One topology bucket with a normalized fraction. */
+function topologyBuckets(net: NetworkParams, topology?: TopologyScenario) {
+  if (!topology) {
+    return [{ airHops: Math.max(1, net.hopCount), fraction: 1, label: `${Math.max(1, net.hopCount)} air hop(s)` }]
+  }
+  const sum = topology.buckets.reduce((a, b) => a + b.percent, 0)
+  const scale = sum > 0 ? 1 / sum : 0
+  return topology.buckets.map((b) => ({ airHops: Math.max(1, b.airHops), fraction: b.percent * scale, label: b.label }))
+}
+
+/** Channel busy time (ms) contributed by one meter at a given air-hop depth. */
+function perNodeChannelMsForHops(
   stats: ProfileStats,
   phy: PhyProfile,
   net: NetworkParams,
+  airHops: number,
 ): number {
   let ms = 0
   for (const t of stats.transactions) {
-    ms += computeAirtime(t.reqBytes, phy, net, false).totalAirtimeMs
-    ms += computeAirtime(t.respBytes, phy, net, true).totalAirtimeMs
+    ms += computeAirtimeForHops(t.reqBytes, phy, net, airHops, false).totalAirtimeMs
+    ms += computeAirtimeForHops(t.respBytes, phy, net, airHops, true).totalAirtimeMs
   }
   return ms
 }
 
+/** Weighted channel busy time (ms) for one fleet-average meter under a topology. */
+export function perNodeChannelMs(
+  stats: ProfileStats,
+  phy: PhyProfile,
+  net: NetworkParams,
+  topology?: TopologyScenario,
+): number {
+  return topologyBuckets(net, topology).reduce(
+    (a, b) => a + b.fraction * perNodeChannelMsForHops(stats, phy, net, b.airHops),
+    0,
+  )
+}
+
 /**
  * Channel occupancy (ms) of each individual transaction STEP (request +
- * response airtime, both directions). In the parallel poll model every meter
- * advances through these steps together, so the heaviest step governs the
- * worst-case inter-message gap that the meter association timeout must survive.
+ * response airtime, both directions), weighted by the fleet topology.
  */
 export function stepChannelTimes(
   stats: ProfileStats,
   phy: PhyProfile,
   net: NetworkParams,
+  topology?: TopologyScenario,
 ): number[] {
-  return stats.transactions.map(
-    (t) =>
-      computeAirtime(t.reqBytes, phy, net, false).totalAirtimeMs +
-      computeAirtime(t.respBytes, phy, net, true).totalAirtimeMs,
+  const buckets = topologyBuckets(net, topology)
+  return stats.transactions.map((t) =>
+    buckets.reduce(
+      (acc, b) =>
+        acc +
+        b.fraction *
+          (computeAirtimeForHops(t.reqBytes, phy, net, b.airHops, false).totalAirtimeMs +
+            computeAirtimeForHops(t.respBytes, phy, net, b.airHops, true).totalAirtimeMs),
+      0,
+    ),
   )
 }
 
@@ -401,16 +435,12 @@ function perNodeBr(stats: ProfileStats, phy: PhyProfile, net: NetworkParams): nu
 }
 
 /**
- * Fleet capacity under the PARALLEL poll model: every meter is polled at the
- * same time and the single BR radio serialises all frames round-robin per step.
+ * Fleet capacity under the selected use-case and topology.
  *
- * Two independent limits are evaluated:
- *  - Channel saturation : Σ per-node channel time must fit the poll cycle.
- *  - Association timeout : for one meter, the gap between consecutive messages
- *    (while the radio services the other N-1 meters at the heaviest step) must
- *    stay below the meter's association inactivity timeout, else it drops.
- *
- * Also checks UART, 4G/MQTT backhaul and gateway CPU. Returns the binding one.
+ * For parallel poll scenarios the shared BR radio serialises every meter step by
+ * step, so the heaviest weighted step governs the association-gap limit.
+ * For non-parallel / push scenarios, association gap is not a fleet-wide limit
+ * because traffic is spread across the cycle instead of forming one synchronized wave.
  */
 export function computeCapacity(
   stats: ProfileStats,
@@ -418,15 +448,17 @@ export function computeCapacity(
   net: NetworkParams,
   useCase: UseCase,
   targetNodes = 100,
+  topology?: TopologyScenario,
 ): CapacityResult {
   const cycleMs = useCase.cycleSeconds * 1000
+  const buckets = topologyBuckets(net, topology)
+  const topologyWeightedAirHops = buckets.reduce((a, b) => a + b.airHops * b.fraction, 0)
+  const topologyWorstAirHops = buckets.reduce((a, b) => Math.max(a, b.airHops), 1)
 
-  // ---- Per-node cost on each shared / serial resource ----
-  const perNodeRfMs = perNodeChannelMs(stats, phy, net)
-  const steps = stepChannelTimes(stats, phy, net)
+  const perNodeRfMs = perNodeChannelMs(stats, phy, net, topology)
+  const steps = stepChannelTimes(stats, phy, net, topology)
   const maxStepChannelMs = steps.length ? Math.max(...steps) : 0
   const { tx: perNodeUartTxMs, rx: perNodeUartRxMs } = perNodeUartSplit(stats, net)
-  // Full-duplex UART: the binding line is the busier direction; half-duplex sums.
   const perNodeUartBindingMs = net.uartFullDuplex
     ? Math.max(perNodeUartTxMs, perNodeUartRxMs)
     : perNodeUartTxMs + perNodeUartRxMs
@@ -437,20 +469,15 @@ export function computeCapacity(
     if (t.reqBytes > 0)
       perNodeCellularMs += serializeMs(t.reqBytes + net.mqttOverheadBytes, net.cellularThroughputKbps)
     if (t.respBytes > 0)
-      perNodeCellularMs += serializeMs(
-        t.respBytes + net.mqttOverheadBytes,
-        net.cellularThroughputKbps,
-      )
+      perNodeCellularMs += serializeMs(t.respBytes + net.mqttOverheadBytes, net.cellularThroughputKbps)
   }
   const perNodePiMs = perNodePi(stats, net)
   const perNodeBrMs = perNodeBr(stats, phy, net)
   const txns = stats.txnCount + stats.pushCount
   const perNodeGwMs = (txns / net.gwMaxTxnPerSec) * 1000
 
-  // ---- Usable fraction of each resource ----
   const rfCap = Math.min(net.channelUtilizationMax, net.dutyCycleLimit)
   const otherCap = net.channelUtilizationMax
-
   const nodesFor = (perNodeMs: number, cap: number) =>
     perNodeMs <= 0 ? Infinity : Math.floor((cycleMs * cap) / perNodeMs)
 
@@ -461,18 +488,17 @@ export function computeCapacity(
   const maxNodesBr = nodesFor(perNodeBrMs, otherCap)
   const maxNodesGw = nodesFor(perNodeGwMs, otherCap)
 
-  // Association-timeout limit. With admission throttling only a wave of
-  // `throttleWindowNodes` is active at once, so the inter-message gap is bounded
-  // by the wave, not the whole fleet.
   const activeWave = (nodes: number) =>
-    net.throttlingEnabled ? Math.min(net.throttleWindowNodes, nodes) : nodes
-  const gapAt = (nodes: number) => activeWave(nodes) * maxStepChannelMs
+    useCase.parallel && net.throttlingEnabled ? Math.min(net.throttleWindowNodes, nodes) : nodes
+  const gapAt = (nodes: number) => (useCase.parallel ? activeWave(nodes) * maxStepChannelMs : 0)
   const assocNodesRaw =
-    maxStepChannelMs <= 0 ? Infinity : Math.floor(net.assocTimeoutMs / maxStepChannelMs)
-  // If throttling keeps each wave within the timeout, association no longer caps
-  // the fleet (only the poll cycle does).
+    !useCase.parallel || maxStepChannelMs <= 0 ? Infinity : Math.floor(net.assocTimeoutMs / maxStepChannelMs)
   const maxNodesAssoc =
-    net.throttlingEnabled && assocNodesRaw >= net.throttleWindowNodes ? Infinity : assocNodesRaw
+    !useCase.parallel
+      ? Infinity
+      : net.throttlingEnabled && assocNodesRaw >= net.throttleWindowNodes
+        ? Infinity
+        : assocNodesRaw
 
   const candidates: Array<{ name: string; nodes: number }> = [
     { name: 'WiSUN RF channel', nodes: maxNodesRf },
@@ -497,6 +523,8 @@ export function computeCapacity(
     perNodePiMs,
     perNodeBrMs,
     perNodeGwMs,
+    topologyWeightedAirHops,
+    topologyWorstAirHops,
     maxStepChannelMs,
     maxNodesRf,
     maxNodesUart,
@@ -526,9 +554,10 @@ export function evaluateProfiles(
   net: NetworkParams,
   useCase: UseCase,
   targetNodes: number,
+  topology?: TopologyScenario,
 ): import('./types').ProfileSupport[] {
   return profiles.map((p) => {
-    const cap = computeCapacity(p.stats, phy, net, useCase, targetNodes)
+    const cap = computeCapacity(p.stats, phy, net, useCase, targetNodes, topology)
     return {
       id: p.id,
       label: p.label,
@@ -561,19 +590,25 @@ export function computeBatch(
   net: NetworkParams,
   useCase: UseCase,
   nodes: number,
+  topology?: TopologyScenario,
 ): BatchAnalysis {
-  const cap = computeCapacity(stats, phy, net, useCase, nodes)
-  const activeWave = net.throttlingEnabled ? Math.min(net.throttleWindowNodes, nodes) : nodes
+  const cap = computeCapacity(stats, phy, net, useCase, nodes, topology)
+  const activeWave = useCase.parallel && net.throttlingEnabled ? Math.min(net.throttleWindowNodes, nodes) : nodes
 
-  // Heaviest single messages (for per-packet columns and BR backlog).
   const heaviestReq = Math.max(0, ...stats.transactions.map((t) => t.reqBytes))
   const heaviestResp = Math.max(0, ...stats.transactions.map((t) => t.respBytes))
-  const airHeaviestResp = computeAirtime(heaviestResp, phy, net, true)
-  const perTxnPi =
-    (net.gwMqttToUdpMs + net.gwUdpToMqttMs + 2 * (net.osSchedulingMs + net.piSelectPollMs)) *
-    net.piLoadFactor
+  const buckets = topologyBuckets(net, topology)
+  const dominantAirHops = buckets.reduce((a, b) => (b.fraction > a.fraction ? b : a), buckets[0]).airHops
+  const airHeaviestReq = computeAirtimeForHops(heaviestReq, phy, net, dominantAirHops, false)
+  const airHeaviestResp = computeAirtimeForHops(heaviestResp, phy, net, dominantAirHops, true)
+  const perPktPi = Math.max(
+    (net.gwMqttToUdpMs + net.osSchedulingMs + net.piSelectPollMs) * net.piLoadFactor,
+    (net.gwUdpToMqttMs + net.osSchedulingMs + net.piSelectPollMs) * net.piLoadFactor,
+  )
   const oversizeFrame = stats.transactions.some(
-    (t) => computeAirtime(t.respBytes, phy, net, true).oversize,
+    (t) =>
+      computeAirtimeForHops(t.reqBytes, phy, net, dominantAirHops, false).oversize ||
+      computeAirtimeForHops(t.respBytes, phy, net, dominantAirHops, true).oversize,
   )
 
   const stage = (
@@ -604,33 +639,36 @@ export function computeBatch(
       'shared',
       'EC200U link',
       true,
-      serializeMs(heaviestResp + net.mqttOverheadBytes, net.cellularThroughputKbps),
+      Math.max(
+        serializeMs(heaviestReq + net.mqttOverheadBytes, net.cellularThroughputKbps),
+        serializeMs(heaviestResp + net.mqttOverheadBytes, net.cellularThroughputKbps),
+      ),
       cap.perNodeCellularMs,
-      'Single modem; publishes serialise (QoS handshake is latency, not throughput).',
+      'Single modem; payload serializes here while MQTT handshakes mainly add latency.',
     ),
     stage(
       'pi',
-      'Pi CPU (Python bridge)',
+      'Pi CPU (Python service)',
       'shared',
       'RPi 2 W cores',
       true,
-      perTxnPi,
+      perPktPi,
       cap.perNodePiMs,
-      `GIL-bound consumer ×${net.piConcurrency}, load ×${net.piLoadFactor}.`,
+      `Linux app side only; GIL-bound consumer ×${net.piConcurrency}, load ×${net.piLoadFactor}.`,
     ),
     stage(
       'uart-tx',
-      'UART → BR (downlink)',
+      'wfantund / Spinel → UART (downlink)',
       'downlink',
       'UART TX line',
       true,
       uartMs(heaviestReq, net),
       cap.perNodeUartTxMs,
-      'One packet at a time over the serial line.',
+      'Linux IPv6/TUN traffic is marshalled by wfantund into Spinel/HDLC over UART.',
     ),
     stage(
       'uart-rx',
-      'BR → UART (uplink)',
+      'UART → wfantund / Spinel (uplink)',
       'uplink',
       net.uartFullDuplex ? 'UART RX line' : 'UART (shared)',
       true,
@@ -642,11 +680,11 @@ export function computeBatch(
       'br',
       'BR MCU processing',
       'shared',
-      'BR MCU',
+      'BR MCU / NWP',
       true,
-      net.brProcessingMsPerFrame * airHeaviestResp.fragments,
+      net.brProcessingMsPerFrame * Math.max(airHeaviestReq.fragments, airHeaviestResp.fragments),
       cap.perNodeBrMs,
-      'Per-frame RF↔UART bridging (RN thread delay counts as latency).',
+      'Per-frame NWP / BR processing; RTOS thread delay is latency, not sustained CPU occupancy.',
     ),
     stage(
       'rf',
@@ -657,18 +695,18 @@ export function computeBatch(
       cap.maxStepChannelMs,
       cap.perNodeRfMs,
       net.freqHoppingEnabled
-        ? 'Single radio; FH spreads interference but does not add BR throughput.'
-        : 'Single fixed-channel radio; all links serialise here.',
+        ? 'Single radio across a mixed-hop fleet; FH spreads interference but does not multiply BR throughput.'
+        : 'Single fixed-channel radio; all links serialize here.',
     ),
     stage(
       'meter',
       'Meter DLMS processing',
       'meter',
-      'each meter (parallel)',
+      'each meter',
       false,
       net.meterProcessingMs,
       (stats.txnCount + stats.pushCount) * net.meterProcessingMs,
-      'Runs in parallel across meters — does not limit the gateway.',
+      useCase.parallel ? 'Runs in parallel across meters — does not limit the gateway.' : 'Traffic is spread across the cycle.',
     ),
   ]
 
@@ -678,15 +716,11 @@ export function computeBatch(
   const singlePassLatencyMs = computeSessionBudget(stats, phy, net).totalMs
   const batchCompletionMs = batchThroughputMs + singlePassLatencyMs
 
-  // BR receive backlog during the heaviest uplink burst: responses arrive on RF
-  // and drain over UART. If UART is slower than RF, frames pile up in the BR.
   const airRespPerMsg = airHeaviestResp.totalAirtimeMs
   const uartRespPerMsg = uartMs(heaviestResp, net)
   const ratio = airRespPerMsg > 0 ? airRespPerMsg / uartRespPerMsg : 1
   const brBacklogFrames =
-    uartRespPerMsg <= airRespPerMsg
-      ? Math.min(activeWave, 2)
-      : Math.max(1, Math.ceil(activeWave * (1 - ratio)))
+    uartRespPerMsg <= airRespPerMsg ? Math.min(activeWave, 2) : Math.max(1, Math.ceil(activeWave * (1 - ratio)))
   const brOverflow = brBacklogFrames > net.brBufferFrames
 
   return {
@@ -701,7 +735,7 @@ export function computeBatch(
     brOverflow,
     assocGapMs: cap.gapAtTargetMs,
     assocTimeoutMs: net.assocTimeoutMs,
-    assocOk: cap.gapAtTargetMs <= net.assocTimeoutMs,
+    assocOk: !useCase.parallel || cap.gapAtTargetMs <= net.assocTimeoutMs,
     oversizeFrame,
   }
 }
@@ -791,7 +825,7 @@ export function computeFlowDetail(
     const gwDownMs = (net.gwMqttToUdpMs + net.osSchedulingMs + net.piSelectPollMs) * net.piLoadFactor
     blocks.push({
       key: 'gw-down',
-      label: 'Pi: MQTT → UDP (Python)',
+      label: 'Pi app: MQTT → IPv6/UDP',
       group: 'downlink',
       ms: r(gwDownMs),
       formula: '(gwMqttToUdpMs + osSchedulingMs + piSelectPollMs) × piLoadFactor',
@@ -816,7 +850,7 @@ export function computeFlowDetail(
       const expRetries = Math.min(net.qos2MaxRetries, per / Math.max(1e-9, 1 - per))
       blocks.push({
         key: 'qos2-down',
-        label: 'Pi → RF-NIC QoS2 (exactly-once)',
+        label: 'Local app↔NIC QoS2 (exactly-once)',
         group: 'downlink',
         ms: r(qos2),
         formula: 'piNicQos2Ms + qos2InterPacketMs + E[retries] × qos2RetryWindowMs',
@@ -841,7 +875,7 @@ export function computeFlowDetail(
     const uartDownMs = uartMs(reqBytes, net)
     blocks.push({
       key: 'uart-down',
-      label: 'UART → Border Router',
+      label: 'wfantund / Spinel → UART',
       group: 'downlink',
       ms: r(uartDownMs),
       formula: '((reqBytes + brFramingOH) × uartBitsPerByte × 1000) / uartBaud',
@@ -859,7 +893,7 @@ export function computeFlowDetail(
     const rnDownMs = net.brProcessingMsPerFrame * Math.max(1, rfDown.fragments) + net.rnThreadDelayMs
     blocks.push({
       key: 'rn-down',
-      label: 'BR MCU + RN thread (downlink)',
+      label: 'BR NWP + RN thread (downlink)',
       group: 'downlink',
       ms: r(rnDownMs),
       formula: 'brProcessingMsPerFrame × fragments + rnThreadDelayMs',
@@ -956,7 +990,7 @@ export function computeFlowDetail(
   if (qos2 > 0) {
     blocks.push({
       key: 'qos2-up',
-      label: 'RF-NIC → Pi QoS2 ACK',
+      label: 'Local NIC↔app QoS2 ACK',
       group: 'uplink',
       ms: r(qos2),
       formula: 'piNicQos2Ms + qos2InterPacketMs + E[retries] × qos2RetryWindowMs',
@@ -977,7 +1011,7 @@ export function computeFlowDetail(
   const uartUpMs = uartMs(respBytes, net)
   blocks.push({
     key: 'uart-up',
-    label: 'Border Router → UART',
+    label: 'UART → wfantund / Spinel',
     group: 'uplink',
     ms: r(uartUpMs),
     formula: '((respBytes + brFramingOH) × uartBitsPerByte × 1000) / uartBaud',
@@ -995,7 +1029,7 @@ export function computeFlowDetail(
   const gwUpMs = (net.gwUdpToMqttMs + net.osSchedulingMs + net.piSelectPollMs) * net.piLoadFactor
   blocks.push({
     key: 'gw-up',
-    label: 'Pi: UDP → MQTT (Python)',
+    label: 'Pi app: IPv6/UDP → MQTT',
     group: 'uplink',
     ms: r(gwUpMs),
     formula: '(gwUdpToMqttMs + osSchedulingMs + piSelectPollMs) × piLoadFactor',

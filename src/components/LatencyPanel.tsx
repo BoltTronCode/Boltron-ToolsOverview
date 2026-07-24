@@ -43,7 +43,7 @@ export function LatencyPanel({
         icon={<Timer className="h-4 w-4" />}
         title={title}
         right={
-          <span className="stat-value text-lg font-bold text-slate-50">{fmtMs(budget.totalMs)}</span>
+          <span className="stat-value text-lg font-bold text-slate-900">{fmtMs(budget.totalMs)}</span>
         }
       />
       {subtitle && <p className="-mt-2 mb-3 text-xs text-slate-400">{subtitle}</p>}
@@ -66,7 +66,7 @@ export function LatencyPanel({
                   }}
                 />
               </div>
-              <div className="w-16 shrink-0 stat-value text-right text-xs font-semibold text-slate-200">
+              <div className="w-16 shrink-0 stat-value text-right text-xs font-semibold text-slate-800">
                 {fmtMs(s.ms)}
               </div>
             </div>
@@ -120,7 +120,7 @@ export function LatencyPanel({
         <div className="mt-4 flex flex-wrap items-center gap-x-6 gap-y-1 rounded-lg border border-white/5 bg-base-850/60 px-3 py-2 text-xs">
           <span className="text-slate-400">
             Modelled:{' '}
-            <span className="stat-value font-semibold text-slate-100">{fmtMs(modelledCore)}</span>
+            <span className="stat-value font-semibold text-slate-900">{fmtMs(modelledCore)}</span>
           </span>
           <span className="text-slate-400">
             Measured (NMS log):{' '}

@@ -80,6 +80,7 @@ export interface NetworkParams {
 
   // ---- 6LoWPAN fragmentation / reassembly ----
   fragmentationEnabled: boolean // split IPv6 payloads into L2 fragments
+  fragmentRequests: boolean // true = also fragment large downlink requests (e.g. FOTA chunks)
   fragmentPayloadBytes: number // datagram payload carried per fragment
   fragHeaderBytes: number // 6LoWPAN FRAG1/FRAGN dispatch header per fragment
   reassemblyMsPerFragment: number // receiver reassembly cost per fragment
@@ -154,6 +155,21 @@ export interface UseCase {
   parallel: boolean // requests issued concurrently by HES
 }
 
+/** One bucket in a fleet topology distribution. */
+export interface TopologyBucket {
+  airHops: number // 1 = direct BR→meter, 2 = one relay, ...
+  percent: number // percentage of fleet in this bucket
+  label: string
+}
+
+/** Real deployment topology for the whole fleet. */
+export interface TopologyScenario {
+  id: string
+  label: string
+  description: string
+  buckets: TopologyBucket[]
+}
+
 /** Result of the end-to-end latency budget for one transaction. */
 export interface LatencyStage {
   key: string
@@ -197,7 +213,9 @@ export interface CapacityResult {
   perNodePiMs: number // Pi CPU (Python) per node, both directions
   perNodeBrMs: number // BR MCU per node, both directions
   perNodeGwMs: number
-  maxStepChannelMs: number // heaviest single transaction step (both directions)
+  topologyWeightedAirHops: number
+  topologyWorstAirHops: number
+  maxStepChannelMs: number // heaviest single transaction step (weighted by topology for the fleet)
   maxNodesRf: number // limited by cycle-time channel saturation
   maxNodesUart: number
   maxNodesCellular: number

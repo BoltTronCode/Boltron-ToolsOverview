@@ -79,19 +79,19 @@ function FlowBlock({ block, index }: { block: FlowBlockDetail; index: number }) 
         'rounded-xl border p-3 transition-all',
         style.ring,
         style.bg,
-        expanded ? 'shadow-glow' : 'hover:border-white/15',
+        expanded ? 'shadow-glow' : 'hover:border-slate-300',
       )}
     >
       {/* Header row: icon + label + timing */}
       <div className="flex items-center justify-between gap-2">
         <div className="flex items-center gap-2">
-          <div className={clsx('flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-base-800/80', style.color)}>
+          <div className={clsx('flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-white shadow-sm', style.color)}>
             <Icon className="h-4 w-4" />
           </div>
           <div className="min-w-0">
             <div className="flex items-center gap-1.5">
               <span className="text-[10px] font-mono text-slate-600">#{String(index + 1).padStart(2, '0')}</span>
-              <span className="truncate text-xs font-semibold text-slate-200">{block.label}</span>
+              <span className="truncate text-xs font-semibold text-slate-800">{block.label}</span>
             </div>
             <span className="text-[10px] text-slate-500">{block.pctOfTotal.toFixed(1)}% of RTT</span>
           </div>
@@ -102,7 +102,7 @@ function FlowBlock({ block, index }: { block: FlowBlockDetail; index: number }) 
       </div>
 
       {/* Formula */}
-      <div className="mt-2 rounded-md bg-base-900/60 px-2 py-1.5">
+      <div className="mt-2 rounded-md bg-slate-50 px-2 py-1.5">
         <code className="block break-all text-[10px] leading-relaxed text-slate-400">{block.formula}</code>
       </div>
 
@@ -111,10 +111,10 @@ function FlowBlock({ block, index }: { block: FlowBlockDetail; index: number }) 
         {block.params.map((param) => (
           <span
             key={param.label}
-            className="inline-flex items-center gap-1 rounded border border-white/5 bg-base-850/60 px-1.5 py-0.5 text-[9px]"
+            className="inline-flex items-center gap-1 rounded border border-slate-200 bg-white px-1.5 py-0.5 text-[9px]"
           >
             <span className="text-slate-500">{param.label}</span>
-            <span className="font-medium text-slate-300">{param.value}</span>
+            <span className="font-medium text-slate-700">{param.value}</span>
           </span>
         ))}
       </div>
@@ -123,7 +123,7 @@ function FlowBlock({ block, index }: { block: FlowBlockDetail; index: number }) 
       {hasSub && (
         <button
           onClick={() => setExpanded((e) => !e)}
-          className="mt-2 flex w-full items-center justify-between rounded-md bg-base-900/40 px-2 py-1 text-[10px] text-slate-500 transition-colors hover:text-slate-300"
+          className="mt-2 flex w-full items-center justify-between rounded-md bg-slate-50 px-2 py-1 text-[10px] text-slate-500 transition-colors hover:text-slate-700"
         >
           <span>Sub-component breakdown ({block.subBreakdown.length})</span>
           {expanded ? <ChevronUp className="h-3 w-3" /> : <ChevronDown className="h-3 w-3" />}
@@ -137,7 +137,7 @@ function FlowBlock({ block, index }: { block: FlowBlockDetail; index: number }) 
               <span className="font-mono text-slate-400">{fmtMs(s.ms)}</span>
             </div>
           ))}
-          <div className="mt-1 flex items-center justify-between border-t border-white/5 pt-1 text-[10px]">
+          <div className="mt-1 flex items-center justify-between border-t border-slate-200 pt-1 text-[10px]">
             <span className="font-medium text-slate-400">Stage total</span>
             <span className={clsx('font-mono font-semibold', style.color)}>{fmtMs(block.ms)}</span>
           </div>
@@ -162,7 +162,7 @@ function Arrow({ direction }: { direction: 'down' | 'up' | 'right' }) {
 
 function SummaryPill({ label, value, color }: { label: string; value: string; color: string }) {
   return (
-    <div className="flex items-center gap-2 rounded-lg border border-white/5 bg-base-850/60 px-3 py-1.5">
+    <div className="flex items-center gap-2 rounded-lg border border-slate-200 bg-white px-3 py-1.5">
       <span className="text-[10px] uppercase tracking-wider text-slate-500">{label}</span>
       <span className={clsx('stat-value text-sm font-bold', color)}>{value}</span>
     </div>
@@ -190,7 +190,7 @@ export function DataFlowDiagram({ detail }: { detail: FlowDetail }) {
             <SummaryPill label="Downlink" value={fmtMs(detail.downlinkMs)} color="text-brand-300" />
             <SummaryPill label="Meter" value={fmtMs(detail.meterMs)} color="text-teal-300" />
             <SummaryPill label="Uplink" value={fmtMs(detail.uplinkMs)} color="text-cyan-300" />
-            <SummaryPill label="Total RTT" value={fmtMs(detail.totalMs)} color="text-slate-100" />
+            <SummaryPill label="Total RTT" value={fmtMs(detail.totalMs)} color="text-slate-900" />
           </div>
         }
       />
@@ -200,6 +200,19 @@ export function DataFlowDiagram({ detail }: { detail: FlowDetail }) {
         and the parameter values that produce it. Click a block to expand its sub-component breakdown.{' '}
         {detail.isPush && '(Push transaction — downlink request path skipped.)'}
       </p>
+
+      <div className="mb-4 overflow-x-auto rounded-xl border border-slate-200 bg-slate-50/80 px-3 py-2">
+        <div className="flex min-w-max items-center gap-1.5 text-[10px]">
+          {detail.blocks.map((block, i) => (
+            <div key={block.key} className="flex items-center gap-1.5">
+              <span className="rounded-full border border-slate-300 bg-white px-2 py-1 font-medium text-slate-700">
+                {block.label}
+              </span>
+              {i < detail.blocks.length - 1 && <ArrowRight className="h-3 w-3 text-slate-400" />}
+            </div>
+          ))}
+        </div>
+      </div>
 
       {/* U-shaped layout: downlink left column ↓, meter centre, uplink right column ↑ */}
       <div className="grid gap-3 lg:grid-cols-[1fr_auto_1fr]">
@@ -212,7 +225,7 @@ export function DataFlowDiagram({ detail }: { detail: FlowDetail }) {
             </span>
           </div>
           {downlink.length === 0 ? (
-            <div className="rounded-xl border border-dashed border-white/5 p-4 text-center text-[11px] text-slate-600">
+            <div className="rounded-xl border border-dashed border-slate-300 p-4 text-center text-[11px] text-slate-600">
               Skipped (push transaction)
             </div>
           ) : (
@@ -267,7 +280,7 @@ export function DataFlowDiagram({ detail }: { detail: FlowDetail }) {
       </div>
 
       {/* Flow legend */}
-      <div className="mt-4 flex flex-wrap items-center gap-3 border-t border-white/5 pt-3 text-[10px] text-slate-500">
+      <div className="mt-4 flex flex-wrap items-center gap-3 border-t border-slate-200 pt-3 text-[10px] text-slate-500">
         <LegendItem color="bg-brand-500" label="4G / MQTT backhaul" />
         <LegendItem color="bg-violet-500" label="Pi CPU (Python)" />
         <LegendItem color="bg-amber-500" label="QoS2 / UART" />

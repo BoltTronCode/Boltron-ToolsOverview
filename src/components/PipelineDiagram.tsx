@@ -53,7 +53,7 @@ export function PipelineDiagram({ budget }: { budget: LatencyBudget }) {
                 <span className="mt-1.5 text-center text-[11px] font-medium text-slate-300">
                   {n.label}
                 </span>
-                <span className="stat-value mt-0.5 text-[11px] font-semibold text-slate-100">
+                <span className="stat-value mt-0.5 text-[11px] font-semibold text-slate-900">
                   {fmtMs(n.ms)}
                 </span>
               </div>

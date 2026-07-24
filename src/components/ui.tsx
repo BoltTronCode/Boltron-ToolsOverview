@@ -24,7 +24,7 @@ export function SectionTitle({
     <div className="mb-3 flex items-center justify-between gap-3">
       <div className="flex items-center gap-2">
         {icon && <span className="text-brand-400">{icon}</span>}
-        <h3 className="text-sm font-semibold tracking-tight text-slate-100">{title}</h3>
+        <h3 className="text-sm font-semibold tracking-tight text-slate-900">{title}</h3>
       </div>
       {right}
     </div>
@@ -51,7 +51,7 @@ export function Stat({
         {icon && <span className="text-slate-500">{icon}</span>}
       </div>
       <div
-        className={clsx('mt-1.5 stat-value text-2xl font-bold', accent ?? 'text-slate-50')}
+        className={clsx('mt-1.5 stat-value text-2xl font-bold', accent ?? 'text-slate-900')}
       >
         {value}
       </div>
@@ -68,7 +68,7 @@ export function Chip({
   color?: 'slate' | 'brand' | 'cyan' | 'amber' | 'rose' | 'teal' | 'violet'
 }) {
   const map: Record<string, string> = {
-    slate: 'text-slate-300',
+    slate: 'text-slate-700 border-slate-300 bg-slate-50',
     brand: 'text-brand-300 border-brand-500/30 bg-brand-500/10',
     cyan: 'text-cyan-300 border-cyan-500/30 bg-cyan-500/10',
     amber: 'text-amber-300 border-amber-500/30 bg-amber-500/10',

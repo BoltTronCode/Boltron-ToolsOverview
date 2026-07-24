@@ -2,6 +2,7 @@
 import { DLMS_PROFILES } from '../src/config/dlmsProfiles.ts'
 import { PHY_PROFILES } from '../src/config/phyProfiles.ts'
 import { USE_CASES } from '../src/config/useCases.ts'
+import { TOPOLOGY_SCENARIOS } from '../src/config/topologyScenarios.ts'
 import { DEFAULT_NETWORK } from '../src/config/networkConfig.ts'
 import { parseProfile } from '../src/lib/logParser.ts'
 import {
@@ -17,6 +18,7 @@ import { DEFAULT_NETWORK as BASE } from '../src/config/networkConfig.ts'
 
 const phy = PHY_PROFILES.find((p) => p.id === 'fsk-50')!
 const poll = USE_CASES.find((u) => u.id === 'poll-15m')!
+const topo = TOPOLOGY_SCENARIOS.find((t) => t.id === 'balanced-40-20-20')!
 
 console.log('=== Profile parse summary ===')
 for (const p of DLMS_PROFILES) {
@@ -34,10 +36,10 @@ for (const b of [13, 103, 797]) {
   console.log(`${String(b).padStart(4)}B -> onAir=${a.onAirBytes}B air=${a.totalAirtimeMs.toFixed(2)}ms frags=${a.fragments}`)
 }
 
-console.log('\n=== Capacity + session (fsk-50, poll-15m) ===')
+console.log(`\n=== Capacity + session (fsk-50, poll-15m, ${topo.label}) ===`)
 for (const p of DLMS_PROFILES) {
   const s = parseProfile(p.raw)
-  const cap = computeCapacity(s, phy, DEFAULT_NETWORK, poll)
+  const cap = computeCapacity(s, phy, DEFAULT_NETWORK, poll, 100, topo)
   const bud = computeSessionBudget(s, phy, DEFAULT_NETWORK)
   console.log(
     `${p.label.padEnd(26)} maxNodes=${String(cap.maxNodes).padStart(5)} (${cap.bottleneck.padEnd(18)}) ` +
@@ -53,6 +55,7 @@ const rows = evaluateProfiles(
   idealNet,
   poll,
   100,
+  TOPOLOGY_SCENARIOS.find((t) => t.id === 'star-100'),
 )
 for (const r of rows) {
   console.log(
@@ -64,9 +67,9 @@ for (const r of rows) {
 
 console.log(`\nAssoc timeout = ${idealNet.assocTimeoutMs / 1000}s`)
 
-console.log('\n=== Stage timing matrix · Block Load 7 Day @ 100 nodes (defaults) ===')
+console.log(`\n=== Stage timing matrix · Block Load 7 Day @ 100 nodes (${topo.label}) ===`)
 const b7 = parseProfile(DLMS_PROFILES.find((p) => p.id === 'block-7d')!.raw)
-const batch = computeBatch(b7, phy, BASE, poll, 100)
+const batch = computeBatch(b7, phy, BASE, poll, 100, topo)
 for (const s of batch.stages) {
   console.log(
     `${s.label.padEnd(26)} ${s.serial ? 'serial  ' : 'parallel'} ` +
@@ -94,6 +97,29 @@ console.log('\n=== UART serial reality (115200 vs 921600 baud, 797B) ===')
 for (const baud of [115200, 921600]) {
   const ms = ((797 + BASE.brFramingOverheadBytes) * BASE.uartBitsPerByte * 1000) / baud
   console.log(`${String(baud).padStart(7)} baud -> ${ms.toFixed(1)}ms/frame · 100 frames = ${(ms * 100 / 1000).toFixed(2)}s`)
+}
+
+console.log('\n=== FOTA profile summary (real log) ===')
+{
+  const fota = parseProfile(DLMS_PROFILES.find((p) => p.id === 'meter-fota')!.raw)
+  const cap = computeCapacity(fota, phy, BASE, USE_CASES.find((u) => u.id === 'fota-6h')!, 100, topo)
+  console.log(
+    `txns=${fota.txnCount} push=${fota.pushCount} req=${fota.reqBytesTotal}B resp=${fota.respBytesTotal}B maxReq=${Math.max(...fota.transactions.map((t) => t.reqBytes))}B maxResp=${Math.max(...fota.transactions.map((t) => t.respBytes))}B`,
+  )
+  console.log(
+    `supported@6h=${cap.maxNodes} bottleneck=${cap.bottleneck} gap@100=${(cap.gapAtTargetMs / 1000).toFixed(1)}s util@100=${cap.channelUtilPercentAt(100).toFixed(1)}%`,
+  )
+}
+
+console.log('\n=== Topology sensitivity (Block Load 7d @ 100 nodes, poll-15m) ===')
+{
+  const s = parseProfile(DLMS_PROFILES.find((p) => p.id === 'block-7d')!.raw)
+  for (const t of TOPOLOGY_SCENARIOS) {
+    const cap = computeCapacity(s, phy, BASE, poll, 100, t)
+    console.log(
+      `${t.label.padEnd(28)} maxNodes=${String(cap.maxNodes).padStart(5)} weightedHops=${cap.topologyWeightedAirHops.toFixed(2)} gap@100=${(cap.gapAtTargetMs / 1000).toFixed(1)}s bottleneck=${cap.bottleneck}`,
+    )
+  }
 }
 
 console.log('\n=== Data-flow detail cross-check (Block Load 7d, heaviest txn, fsk-50) ===')

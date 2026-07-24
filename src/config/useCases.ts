@@ -55,6 +55,30 @@ export const USE_CASES: UseCase[] = [
     cycleSeconds: 30 * 60,
     parallel: false,
   },
+  {
+    id: 'fota-2h',
+    label: 'FOTA campaign · 2 hour window',
+    kind: 'poll',
+    description: 'Aggressive firmware campaign. HES drives the whole fleet through the selected FOTA workload within 2 hours.',
+    cycleSeconds: 2 * 60 * 60,
+    parallel: true,
+  },
+  {
+    id: 'fota-6h',
+    label: 'FOTA campaign · 6 hour window',
+    kind: 'poll',
+    description: 'Moderate firmware campaign window for the whole fleet.',
+    cycleSeconds: 6 * 60 * 60,
+    parallel: true,
+  },
+  {
+    id: 'fota-24h',
+    label: 'FOTA campaign · 24 hour window',
+    kind: 'poll',
+    description: 'Conservative day-long firmware campaign window.',
+    cycleSeconds: 24 * 60 * 60,
+    parallel: true,
+  },
 ]
 
 export const DEFAULT_USE_CASE_ID = 'poll-15m'

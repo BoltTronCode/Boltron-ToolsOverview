@@ -29,6 +29,7 @@ export const DEFAULT_NETWORK: NetworkParams = {
 
   // ---- 6LoWPAN fragmentation / reassembly ----
   fragmentationEnabled: true,
+  fragmentRequests: false, // default DLMS traffic is request-small / response-heavier; FOTA may enable this
   fragmentPayloadBytes: 1280, // WiSUN L2 payload; DLMS blocks (<=~800B) rarely fragment
   fragHeaderBytes: 5, // FRAG1 (4) / FRAGN (5) dispatch header
   reassemblyMsPerFragment: 0.5, // receiver reassembly cost per fragment
@@ -36,7 +37,7 @@ export const DEFAULT_NETWORK: NetworkParams = {
   // ---- Raspberry Pi 2 W <-> Border Router UART (single serial line) ----
   uartBaud: 115200,
   uartBitsPerByte: 10, // 8N1
-  brFramingOverheadBytes: 6, // host<->BR serial API (SLIP/HDLC) framing per frame
+  brFramingOverheadBytes: 6, // effective Spinel/HDLC-Lite framing overhead per UART packet
   uartFullDuplex: true, // separate TX/RX lines -> directions overlap
 
   // ---- Border Router MCU ----
@@ -52,7 +53,7 @@ export const DEFAULT_NETWORK: NetworkParams = {
 
   // ---- Meter DLMS processing ----
   meterProcessingMs: 120, // per request (assoc/get) inside meter firmware
-  assocTimeoutMs: 30000, // association inactivity timeout (typical DLMS: 30-120 s)
+  assocTimeoutMs: 20000, // default deployment uses 20 s association inactivity timeout
   respRandomDelayMaxMs: 0, // NIC randomised response delay (0 now; tunable later)
 
   // ---- Frequency hopping (WiSUN FAN unicast schedule) ----

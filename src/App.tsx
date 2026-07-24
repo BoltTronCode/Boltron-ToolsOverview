@@ -14,6 +14,7 @@ import { Activity, Boxes, Clock, Radio, Github, ShieldAlert } from 'lucide-react
 import { PHY_PROFILES, DEFAULT_PHY_ID } from './config/phyProfiles'
 import { DLMS_PROFILES, DEFAULT_DLMS_ID } from './config/dlmsProfiles'
 import { USE_CASES, DEFAULT_USE_CASE_ID } from './config/useCases'
+import { TOPOLOGY_SCENARIOS, DEFAULT_TOPOLOGY_ID } from './config/topologyScenarios'
 import { DEFAULT_NETWORK } from './config/networkConfig'
 import type { NetworkParams } from './lib/types'
 import { parseProfile } from './lib/logParser'
@@ -40,6 +41,7 @@ export default function App() {
   const [phyId, setPhyId] = useState(DEFAULT_PHY_ID)
   const [dlmsId, setDlmsId] = useState(DEFAULT_DLMS_ID)
   const [useCaseId, setUseCaseId] = useState(DEFAULT_USE_CASE_ID)
+  const [topologyId, setTopologyId] = useState(DEFAULT_TOPOLOGY_ID)
   const [net, setNet] = useState<NetworkParams>(DEFAULT_NETWORK)
   const [targetNodes, setTargetNodes] = useState(100)
 
@@ -51,6 +53,7 @@ export default function App() {
 
   const phy = PHY_PROFILES.find((p) => p.id === phyId) ?? PHY_PROFILES[0]
   const useCase = USE_CASES.find((u) => u.id === useCaseId) ?? USE_CASES[0]
+  const topology = TOPOLOGY_SCENARIOS.find((t) => t.id === topologyId) ?? TOPOLOGY_SCENARIOS[0]
   const dlms = DLMS_PROFILES.find((p) => p.id === dlmsId) ?? DLMS_PROFILES[0]
   const stats = allStats[dlmsId]
 
@@ -59,12 +62,12 @@ export default function App() {
     [stats, phy, net],
   )
   const capacity = useMemo(
-    () => computeCapacity(stats, phy, net, useCase, targetNodes),
-    [stats, phy, net, useCase, targetNodes],
+    () => computeCapacity(stats, phy, net, useCase, targetNodes, topology),
+    [stats, phy, net, useCase, targetNodes, topology],
   )
   const batch = useMemo(
-    () => computeBatch(stats, phy, net, useCase, targetNodes),
-    [stats, phy, net, useCase, targetNodes],
+    () => computeBatch(stats, phy, net, useCase, targetNodes, topology),
+    [stats, phy, net, useCase, targetNodes, topology],
   )
   const support = useMemo(
     () =>
@@ -79,8 +82,9 @@ export default function App() {
         net,
         useCase,
         targetNodes,
+        topology,
       ),
-    [allStats, phy, net, useCase, targetNodes],
+    [allStats, phy, net, useCase, targetNodes, topology],
   )
 
   // Representative transaction (largest response) for the pipeline diagram.
@@ -110,6 +114,7 @@ export default function App() {
   const patchNet = (patch: Partial<NetworkParams>) => setNet((n) => ({ ...n, ...patch }))
   const idealRf = () => {
     patchNet({ hopCount: 1, packetErrorRate: 0 })
+    setTopologyId('star-100')
     setTargetNodes(100)
   }
   const reset = () => {
@@ -117,6 +122,7 @@ export default function App() {
     setPhyId(DEFAULT_PHY_ID)
     setDlmsId(DEFAULT_DLMS_ID)
     setUseCaseId(DEFAULT_USE_CASE_ID)
+    setTopologyId(DEFAULT_TOPOLOGY_ID)
     setTargetNodes(100)
   }
 
@@ -130,7 +136,7 @@ export default function App() {
               <Radio className="h-6 w-6 text-white" />
             </div>
             <div>
-              <h1 className="text-xl font-extrabold tracking-tight text-slate-50 sm:text-2xl">
+              <h1 className="text-xl font-extrabold tracking-tight text-slate-900 sm:text-2xl">
                 WiSUN Throughput &amp; Capacity Calculator
               </h1>
               <p className="text-xs text-slate-400 sm:text-sm">
@@ -156,11 +162,13 @@ export default function App() {
             phyId={phyId}
             dlmsId={dlmsId}
             useCaseId={useCaseId}
+            topologyId={topologyId}
             net={net}
             targetNodes={targetNodes}
             onPhy={setPhyId}
             onDlms={setDlmsId}
             onUseCase={setUseCaseId}
+            onTopology={setTopologyId}
             onNet={patchNet}
             onTargetNodes={setTargetNodes}
             onIdealRf={idealRf}
@@ -175,7 +183,7 @@ export default function App() {
             <Stat
               label="Max nodes / gateway"
               value={fmtNum(capacity.maxNodes)}
-              sub={`Limited by ${capacity.bottleneck} · ${useCase.label}`}
+              sub={`Limited by ${capacity.bottleneck} · ${useCase.label} · ${topology.label}`}
               accent="text-brand-300"
               icon={<Boxes className="h-4 w-4" />}
             />
@@ -214,7 +222,7 @@ export default function App() {
 
           <StageTimingMatrix batch={batch} />
 
-          <CapacityPanel cap={capacity} />
+          <CapacityPanel cap={capacity} topology={topology} />
 
           <div className="grid gap-4 xl:grid-cols-2">
             <LatencyPanel
