@@ -46,17 +46,17 @@ export function LatencyPanel({
           <span className="stat-value text-lg font-bold text-slate-900">{fmtMs(budget.totalMs)}</span>
         }
       />
-      {subtitle && <p className="-mt-2 mb-3 text-xs text-slate-400">{subtitle}</p>}
+      {subtitle && <p className="-mt-2 mb-3 text-xs text-slate-500">{subtitle}</p>}
 
       <div className="grid gap-4 lg:grid-cols-[1fr_200px]">
         {/* Stage bars */}
         <div className="space-y-1.5">
           {budget.stages.map((s) => (
             <div key={s.key} className="group flex items-center gap-2">
-              <div className="w-40 shrink-0 truncate text-right text-xs text-slate-400" title={s.detail}>
+              <div className="w-40 shrink-0 truncate text-right text-xs text-slate-500" title={s.detail}>
                 {s.label}
               </div>
-              <div className="relative h-5 flex-1 overflow-hidden rounded bg-base-800">
+              <div className="relative h-5 flex-1 overflow-hidden rounded bg-slate-200">
                 <div
                   className="h-full rounded"
                   style={{
@@ -117,21 +117,21 @@ export function LatencyPanel({
       </div>
 
       {measured != null && (
-        <div className="mt-4 flex flex-wrap items-center gap-x-6 gap-y-1 rounded-lg border border-white/5 bg-base-850/60 px-3 py-2 text-xs">
+        <div className="mt-4 flex flex-wrap items-center gap-x-6 gap-y-1 rounded-lg border border-slate-200 bg-slate-50 px-3 py-2 text-xs">
           <span className="text-slate-400">
             Modelled:{' '}
             <span className="stat-value font-semibold text-slate-900">{fmtMs(modelledCore)}</span>
           </span>
           <span className="text-slate-400">
             Measured (NMS log):{' '}
-            <span className="stat-value font-semibold text-cyan-300">{fmtMs(measured)}</span>
+            <span className="stat-value font-semibold text-cyan-600">{fmtMs(measured)}</span>
           </span>
           {delta != null && (
             <span className="text-slate-400">
               Δ{' '}
               <span
                 className={`stat-value font-semibold ${
-                  Math.abs(delta) < 25 ? 'text-teal-300' : 'text-amber-300'
+                  Math.abs(delta) < 25 ? 'text-teal-600' : 'text-amber-600'
                 }`}
               >
                 {delta > 0 ? '+' : ''}

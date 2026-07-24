@@ -40,23 +40,23 @@ const BLOCK_STYLE: Record<
   string,
   { icon: typeof Server; color: string; ring: string; bg: string }
 > = {
-  'hes-nms-down': { icon: Server, color: 'text-slate-300', ring: 'border-slate-500/30', bg: 'bg-slate-500/5' },
-  'cell-down': { icon: Cloud, color: 'text-brand-300', ring: 'border-brand-500/30', bg: 'bg-brand-500/5' },
-  'gw-down': { icon: Cpu, color: 'text-violet-300', ring: 'border-violet-500/30', bg: 'bg-violet-500/5' },
-  'qos2-down': { icon: ShieldCheck, color: 'text-amber-300', ring: 'border-amber-500/30', bg: 'bg-amber-500/5' },
-  'uart-down': { icon: Cable, color: 'text-amber-300', ring: 'border-amber-500/30', bg: 'bg-amber-500/5' },
-  'rn-down': { icon: Router, color: 'text-cyan-300', ring: 'border-cyan-500/30', bg: 'bg-cyan-500/5' },
-  'rf-down': { icon: RadioTower, color: 'text-cyan-300', ring: 'border-cyan-500/30', bg: 'bg-cyan-500/5' },
-  meter: { icon: Gauge, color: 'text-teal-300', ring: 'border-teal-500/30', bg: 'bg-teal-500/5' },
-  'resp-delay': { icon: Zap, color: 'text-amber-300', ring: 'border-amber-500/30', bg: 'bg-amber-500/5' },
-  'rf-up': { icon: RadioTower, color: 'text-cyan-300', ring: 'border-cyan-500/30', bg: 'bg-cyan-500/5' },
-  'rn-up': { icon: Router, color: 'text-cyan-300', ring: 'border-cyan-500/30', bg: 'bg-cyan-500/5' },
-  reassembly: { icon: Network, color: 'text-cyan-300', ring: 'border-cyan-500/30', bg: 'bg-cyan-500/5' },
-  'qos2-up': { icon: ShieldCheck, color: 'text-amber-300', ring: 'border-amber-500/30', bg: 'bg-amber-500/5' },
-  'uart-up': { icon: Cable, color: 'text-amber-300', ring: 'border-amber-500/30', bg: 'bg-amber-500/5' },
-  'gw-up': { icon: Cpu, color: 'text-violet-300', ring: 'border-violet-500/30', bg: 'bg-violet-500/5' },
-  'cell-up': { icon: Cloud, color: 'text-brand-300', ring: 'border-brand-500/30', bg: 'bg-brand-500/5' },
-  'nms-hes-up': { icon: Server, color: 'text-slate-300', ring: 'border-slate-500/30', bg: 'bg-slate-500/5' },
+  'hes-nms-down': { icon: Server, color: 'text-slate-600', ring: 'border-slate-300', bg: 'bg-slate-50' },
+  'cell-down': { icon: Cloud, color: 'text-brand-600', ring: 'border-brand-200', bg: 'bg-brand-50/60' },
+  'gw-down': { icon: Cpu, color: 'text-violet-600', ring: 'border-violet-200', bg: 'bg-violet-50/60' },
+  'qos2-down': { icon: ShieldCheck, color: 'text-amber-600', ring: 'border-amber-200', bg: 'bg-amber-50/60' },
+  'uart-down': { icon: Cable, color: 'text-amber-600', ring: 'border-amber-200', bg: 'bg-amber-50/60' },
+  'rn-down': { icon: Router, color: 'text-cyan-600', ring: 'border-cyan-200', bg: 'bg-cyan-50/60' },
+  'rf-down': { icon: RadioTower, color: 'text-cyan-600', ring: 'border-cyan-200', bg: 'bg-cyan-50/60' },
+  meter: { icon: Gauge, color: 'text-teal-600', ring: 'border-teal-200', bg: 'bg-teal-50/60' },
+  'resp-delay': { icon: Zap, color: 'text-amber-600', ring: 'border-amber-200', bg: 'bg-amber-50/60' },
+  'rf-up': { icon: RadioTower, color: 'text-cyan-600', ring: 'border-cyan-200', bg: 'bg-cyan-50/60' },
+  'rn-up': { icon: Router, color: 'text-cyan-600', ring: 'border-cyan-200', bg: 'bg-cyan-50/60' },
+  reassembly: { icon: Network, color: 'text-cyan-600', ring: 'border-cyan-200', bg: 'bg-cyan-50/60' },
+  'qos2-up': { icon: ShieldCheck, color: 'text-amber-600', ring: 'border-amber-200', bg: 'bg-amber-50/60' },
+  'uart-up': { icon: Cable, color: 'text-amber-600', ring: 'border-amber-200', bg: 'bg-amber-50/60' },
+  'gw-up': { icon: Cpu, color: 'text-violet-600', ring: 'border-violet-200', bg: 'bg-violet-50/60' },
+  'cell-up': { icon: Cloud, color: 'text-brand-600', ring: 'border-brand-200', bg: 'bg-brand-50/60' },
+  'nms-hes-up': { icon: Server, color: 'text-slate-600', ring: 'border-slate-300', bg: 'bg-slate-50' },
 }
 
 const GROUP_LABEL: Record<string, string> = {
@@ -103,7 +103,7 @@ function FlowBlock({ block, index }: { block: FlowBlockDetail; index: number }) 
 
       {/* Formula */}
       <div className="mt-2 rounded-md bg-slate-50 px-2 py-1.5">
-        <code className="block break-all text-[10px] leading-relaxed text-slate-400">{block.formula}</code>
+        <code className="block break-words text-[10px] leading-relaxed text-slate-600">{block.formula}</code>
       </div>
 
       {/* Parameter chips */}
@@ -134,11 +134,11 @@ function FlowBlock({ block, index }: { block: FlowBlockDetail; index: number }) 
           {block.subBreakdown.map((s, i) => (
             <div key={i} className="flex items-center justify-between text-[10px]">
               <span className="text-slate-500">{s.label}</span>
-              <span className="font-mono text-slate-400">{fmtMs(s.ms)}</span>
+              <span className="font-mono text-slate-600">{fmtMs(s.ms)}</span>
             </div>
           ))}
           <div className="mt-1 flex items-center justify-between border-t border-slate-200 pt-1 text-[10px]">
-            <span className="font-medium text-slate-400">Stage total</span>
+            <span className="font-medium text-slate-600">Stage total</span>
             <span className={clsx('font-mono font-semibold', style.color)}>{fmtMs(block.ms)}</span>
           </div>
         </div>
@@ -187,9 +187,9 @@ export function DataFlowDiagram({ detail }: { detail: FlowDetail }) {
         title="End-to-end data-flow block diagram"
         right={
           <div className="flex flex-wrap gap-1.5">
-            <SummaryPill label="Downlink" value={fmtMs(detail.downlinkMs)} color="text-brand-300" />
-            <SummaryPill label="Meter" value={fmtMs(detail.meterMs)} color="text-teal-300" />
-            <SummaryPill label="Uplink" value={fmtMs(detail.uplinkMs)} color="text-cyan-300" />
+            <SummaryPill label="Downlink" value={fmtMs(detail.downlinkMs)} color="text-brand-600" />
+            <SummaryPill label="Meter" value={fmtMs(detail.meterMs)} color="text-teal-600" />
+            <SummaryPill label="Uplink" value={fmtMs(detail.uplinkMs)} color="text-cyan-600" />
             <SummaryPill label="Total RTT" value={fmtMs(detail.totalMs)} color="text-slate-900" />
           </div>
         }
@@ -201,8 +201,8 @@ export function DataFlowDiagram({ detail }: { detail: FlowDetail }) {
         {detail.isPush && '(Push transaction — downlink request path skipped.)'}
       </p>
 
-      <div className="mb-4 overflow-x-auto rounded-xl border border-slate-200 bg-slate-50/80 px-3 py-2">
-        <div className="flex min-w-max items-center gap-1.5 text-[10px]">
+      <div className="mb-4 rounded-xl border border-slate-200 bg-slate-50/80 px-3 py-2">
+        <div className="flex flex-wrap items-center gap-1.5 text-[10px]">
           {detail.blocks.map((block, i) => (
             <div key={block.key} className="flex items-center gap-1.5">
               <span className="rounded-full border border-slate-300 bg-white px-2 py-1 font-medium text-slate-700">

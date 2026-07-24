@@ -17,8 +17,9 @@ import {
 import { DEFAULT_NETWORK as BASE } from '../src/config/networkConfig.ts'
 
 const phy = PHY_PROFILES.find((p) => p.id === 'fsk-50')!
-const poll = USE_CASES.find((u) => u.id === 'poll-15m')!
-const topo = TOPOLOGY_SCENARIOS.find((t) => t.id === 'balanced-40-20-20')!
+const poll = USE_CASES.find((u) => u.id === 'poll')!
+const push = USE_CASES.find((u) => u.id === 'push-last-gasp')!
+const topo = TOPOLOGY_SCENARIOS.find((t) => t.id === 'rf-40-20-20-10-10')!
 
 console.log('=== Profile parse summary ===')
 for (const p of DLMS_PROFILES) {
@@ -36,7 +37,7 @@ for (const b of [13, 103, 797]) {
   console.log(`${String(b).padStart(4)}B -> onAir=${a.onAirBytes}B air=${a.totalAirtimeMs.toFixed(2)}ms frags=${a.fragments}`)
 }
 
-console.log(`\n=== Capacity + session (fsk-50, poll-15m, ${topo.label}) ===`)
+console.log(`\n=== Capacity + session (fsk-50, poll, ${topo.label}) ===`)
 for (const p of DLMS_PROFILES) {
   const s = parseProfile(p.raw)
   const cap = computeCapacity(s, phy, DEFAULT_NETWORK, poll, 100, topo)
@@ -47,7 +48,7 @@ for (const p of DLMS_PROFILES) {
   )
 }
 
-console.log('\n=== Feasibility @ 100 nodes · Ideal RF (PER 0, 1 hop) · fsk-50 · poll-15m ===')
+console.log('\n=== Feasibility @ 100 nodes · Ideal RF (PER 0, 1 hop) · fsk-50 · poll ===')
 const idealNet = { ...BASE, packetErrorRate: 0, hopCount: 1 }
 const rows = evaluateProfiles(
   DLMS_PROFILES.map((p) => ({ id: p.id, label: p.label, category: p.category, stats: parseProfile(p.raw) })),
@@ -55,7 +56,7 @@ const rows = evaluateProfiles(
   idealNet,
   poll,
   100,
-  TOPOLOGY_SCENARIOS.find((t) => t.id === 'star-100'),
+  TOPOLOGY_SCENARIOS.find((t) => t.id === 'in-room-100'),
 )
 for (const r of rows) {
   console.log(
@@ -102,16 +103,53 @@ for (const baud of [115200, 921600]) {
 console.log('\n=== FOTA profile summary (real log) ===')
 {
   const fota = parseProfile(DLMS_PROFILES.find((p) => p.id === 'meter-fota')!.raw)
-  const cap = computeCapacity(fota, phy, BASE, USE_CASES.find((u) => u.id === 'fota-6h')!, 100, topo)
+  const cap = computeCapacity(fota, phy, BASE, poll, 100, topo)
   console.log(
     `txns=${fota.txnCount} push=${fota.pushCount} req=${fota.reqBytesTotal}B resp=${fota.respBytesTotal}B maxReq=${Math.max(...fota.transactions.map((t) => t.reqBytes))}B maxResp=${Math.max(...fota.transactions.map((t) => t.respBytes))}B`,
   )
   console.log(
-    `supported@6h=${cap.maxNodes} bottleneck=${cap.bottleneck} gap@100=${(cap.gapAtTargetMs / 1000).toFixed(1)}s util@100=${cap.channelUtilPercentAt(100).toFixed(1)}%`,
+    `supported@poll=${cap.maxNodes} bottleneck=${cap.bottleneck} gap@100=${(cap.gapAtTargetMs / 1000).toFixed(1)}s util@100=${cap.channelUtilPercentAt(100).toFixed(1)}%`,
   )
 }
 
-console.log('\n=== Topology sensitivity (Block Load 7d @ 100 nodes, poll-15m) ===')
+console.log('\n=== PUSH storm sanity (115B uplink-only, 100 nodes) ===')
+{
+  const pushStats = {
+    transactions: [
+      {
+        seq: 0,
+        reqBytes: 0,
+        respBytes: 115,
+        reqEpoch: null,
+        respEpoch: null,
+        rttMs: null,
+        reqApdu: undefined,
+        respApdu: 'Last Gasp PUSH',
+        isPush: true,
+      },
+    ],
+    txnCount: 0,
+    pushCount: 1,
+    reqBytesTotal: 0,
+    respBytesTotal: 115,
+    appBytesTotal: 115,
+    measuredDurationMs: 0,
+    measuredRttMsTotal: 0,
+    frames: 1,
+    records: [],
+  }
+  const cap = computeCapacity(pushStats, phy, BASE, push, 100)
+  const batch = computeBatch(pushStats, phy, BASE, push, 100)
+  const budget = computeSessionBudget(pushStats, phy, BASE)
+  console.log(
+    `pushBytes=115B maxNodes=${cap.maxNodes} bottleneck=${cap.bottleneck} assocGap=${cap.gapAtTargetMs.toFixed(1)}ms assocLimited=${Number.isFinite(cap.maxNodesAssoc)}`,
+  )
+  console.log(
+    `batchThroughput=${(batch.batchThroughputMs / 1000).toFixed(2)}s completion=${(batch.batchCompletionMs / 1000).toFixed(2)}s brBacklog=${batch.brBacklogFrames}/${batch.brBufferFrames} assocOk=${batch.assocOk} singleMeter=${budget.totalMs.toFixed(2)}ms`,
+  )
+}
+
+console.log('\n=== Topology sensitivity (Block Load 7d @ 100 nodes, poll) ===')
 {
   const s = parseProfile(DLMS_PROFILES.find((p) => p.id === 'block-7d')!.raw)
   for (const t of TOPOLOGY_SCENARIOS) {

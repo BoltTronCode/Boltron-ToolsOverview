@@ -55,7 +55,7 @@ export function Stat({
       >
         {value}
       </div>
-      {sub && <div className="mt-1 text-xs text-slate-400">{sub}</div>}
+      {sub && <div className="mt-1 text-xs text-slate-500">{sub}</div>}
     </Card>
   )
 }
@@ -69,12 +69,12 @@ export function Chip({
 }) {
   const map: Record<string, string> = {
     slate: 'text-slate-700 border-slate-300 bg-slate-50',
-    brand: 'text-brand-300 border-brand-500/30 bg-brand-500/10',
-    cyan: 'text-cyan-300 border-cyan-500/30 bg-cyan-500/10',
-    amber: 'text-amber-300 border-amber-500/30 bg-amber-500/10',
-    rose: 'text-rose-300 border-rose-500/30 bg-rose-500/10',
-    teal: 'text-teal-300 border-teal-500/30 bg-teal-500/10',
-    violet: 'text-violet-300 border-violet-500/30 bg-violet-500/10',
+    brand: 'text-brand-700 border-brand-200 bg-brand-50',
+    cyan: 'text-cyan-700 border-cyan-200 bg-cyan-50',
+    amber: 'text-amber-700 border-amber-200 bg-amber-50',
+    rose: 'text-rose-700 border-rose-200 bg-rose-50',
+    teal: 'text-teal-700 border-teal-200 bg-teal-50',
+    violet: 'text-violet-700 border-violet-200 bg-violet-50',
   }
   return <span className={clsx('chip', map[color])}>{children}</span>
 }
@@ -90,7 +90,7 @@ export function Bar({
 }) {
   const pct = max > 0 ? Math.min(100, (value / max) * 100) : 0
   return (
-    <div className="h-2 w-full overflow-hidden rounded-full bg-base-700">
+    <div className="h-2 w-full overflow-hidden rounded-full bg-slate-200">
       <div className={clsx('h-full rounded-full transition-all', color)} style={{ width: `${pct}%` }} />
     </div>
   )

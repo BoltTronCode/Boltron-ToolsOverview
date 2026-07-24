@@ -33,64 +33,73 @@ export function ProfileExplorer({
           </div>
         }
       />
-      <div className="max-h-[360px] overflow-auto rounded-lg border border-white/5">
-        <table className="w-full text-left text-xs">
-          <thead className="sticky top-0 bg-base-850 text-slate-400">
-            <tr>
-              <th className="px-3 py-2 font-medium">#</th>
-              <th className="px-3 py-2 font-medium">Request APDU</th>
-              <th className="px-3 py-2 text-right font-medium">Req B</th>
-              <th className="px-3 py-2 text-right font-medium">Req air</th>
-              <th className="px-3 py-2 font-medium">Response APDU</th>
-              <th className="px-3 py-2 text-right font-medium">Resp B</th>
-              <th className="px-3 py-2 text-right font-medium">Frag</th>
-              <th className="px-3 py-2 text-right font-medium">Resp air</th>
-              <th className="px-3 py-2 text-right font-medium">Measured</th>
-            </tr>
-          </thead>
-          <tbody className="divide-y divide-white/5">
-            {stats.transactions.map((t) => {
-              const reqAir = computeAirtime(t.reqBytes, phy, net, false)
-              const respAir = computeAirtime(t.respBytes, phy, net, true)
-              return (
-                <tr key={t.seq} className="hover:bg-white/[0.03]">
-                  <td className="px-3 py-1.5 text-slate-500">{t.seq + 1}</td>
-                  <td className="px-3 py-1.5 text-slate-300">
-                    {t.isPush ? <span className="text-violet-300">— (PUSH) —</span> : t.reqApdu ?? '—'}
-                  </td>
-                  <td className="px-3 py-1.5 text-right stat-value text-slate-400">
-                    {t.reqBytes || '—'}
-                  </td>
-                  <td className="px-3 py-1.5 text-right stat-value text-brand-300">
-                    {t.reqBytes ? fmtMs(reqAir.totalAirtimeMs) : '—'}
-                  </td>
-                  <td className="px-3 py-1.5 text-slate-300">{t.respApdu ?? '—'}</td>
-                  <td className="px-3 py-1.5 text-right stat-value text-slate-400">
-                    {t.respBytes || '—'}
-                  </td>
-                  <td
-                    className={`px-3 py-1.5 text-right stat-value ${respAir.oversize ? 'text-rose-300' : 'text-slate-500'}`}
-                  >
-                    {t.respBytes ? (respAir.oversize ? '⚠' : respAir.fragments) : '—'}
-                  </td>
-                  <td className="px-3 py-1.5 text-right stat-value text-teal-300">
-                    {t.respBytes ? fmtMs(respAir.totalAirtimeMs) : '—'}
-                  </td>
-                  <td className="px-3 py-1.5 text-right stat-value text-cyan-300">
+
+      <div className="max-h-[720px] space-y-2 overflow-auto pr-1">
+        {stats.transactions.map((t) => {
+          const reqAir = computeAirtime(t.reqBytes, phy, net, false)
+          const respAir = computeAirtime(t.respBytes, phy, net, true)
+          return (
+            <div key={t.seq} className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm">
+              <div className="flex flex-wrap items-start justify-between gap-3">
+                <div>
+                  <div className="flex flex-wrap items-center gap-2">
+                    <span className="rounded-full border border-slate-300 bg-slate-50 px-2 py-0.5 font-mono text-[10px] text-slate-600">
+                      TXN {t.seq + 1}
+                    </span>
+                    {t.isPush && <Chip color="violet">push</Chip>}
+                  </div>
+                  <div className="mt-2 text-xs text-slate-500">Request APDU</div>
+                  <div className="mt-1 text-sm text-slate-800">{t.isPush ? '— (PUSH) —' : t.reqApdu ?? '—'}</div>
+                  <div className="mt-2 text-xs text-slate-500">Response APDU</div>
+                  <div className="mt-1 text-sm text-slate-800">{t.respApdu ?? '—'}</div>
+                </div>
+                <div className="rounded-xl border border-slate-200 bg-slate-50 px-3 py-2 text-right">
+                  <div className="label">Measured RTT</div>
+                  <div className="stat-value mt-1 text-sm font-semibold text-cyan-600">
                     {t.rttMs != null ? fmtMs(t.rttMs) : '—'}
-                  </td>
-                </tr>
-              )
-            })}
-          </tbody>
-        </table>
+                  </div>
+                </div>
+              </div>
+
+              <div className="mt-3 grid gap-2 sm:grid-cols-2 xl:grid-cols-3">
+                <Metric label="Req bytes" value={t.reqBytes ? `${t.reqBytes}` : '—'} accent="text-slate-900" />
+                <Metric label="Req WiSUN air" value={t.reqBytes ? fmtMs(reqAir.totalAirtimeMs) : '—'} accent="text-brand-600" />
+                <Metric label="Resp bytes" value={t.respBytes ? `${t.respBytes}` : '—'} accent="text-slate-900" />
+                <Metric
+                  label="Resp UDP packets"
+                  value={t.respBytes ? (respAir.oversize ? '⚠ oversize' : `${respAir.fragments}`) : '—'}
+                  accent={respAir.oversize ? 'text-rose-600' : 'text-slate-900'}
+                />
+                <Metric label="Resp WiSUN air" value={t.respBytes ? fmtMs(respAir.totalAirtimeMs) : '—'} accent="text-teal-600" />
+                <Metric label="Total app bytes" value={`${t.reqBytes + t.respBytes}`} accent="text-violet-600" />
+              </div>
+            </div>
+          )
+        })}
       </div>
-      <p className="mt-2 text-[11px] text-slate-500">
-        "Req air" / "Resp air" are the modelled WiSUN airtimes per direction (incl. hops,
-        retransmissions, MAC ACK, CSMA &amp; FH rendezvous). "Frag" = 6LoWPAN fragments for the
-        response (⚠ = exceeds PSDU cap with fragmentation off). "Measured" is the request→response
-        gap captured at the NMS.
+
+      <p className="mt-3 text-[11px] text-slate-500">
+        Each card shows one transaction from the selected profile. WiSUN airtime includes hops,
+        retransmissions, MAC ACK, CSMA, minimum TX-off time, and frequency-hopping rendezvous.
+        "Resp UDP packets" shows application-layer packetization behavior for the response path.
       </p>
     </Card>
+  )
+}
+
+function Metric({
+  label,
+  value,
+  accent,
+}: {
+  label: string
+  value: string
+  accent: string
+}) {
+  return (
+    <div className="rounded-xl border border-slate-200 bg-slate-50 p-3">
+      <div className="label">{label}</div>
+      <div className={`stat-value mt-1 text-sm font-semibold ${accent}`}>{value}</div>
+    </div>
   )
 }

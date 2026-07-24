@@ -15,7 +15,7 @@
 import type { NetworkParams } from '../lib/types'
 
 export const DEFAULT_NETWORK: NetworkParams = {
-  // ---- Link layer / RF (IEEE 802.15.4e + 6LoWPAN) ----
+  // ---- Link layer / RF (IEEE 802.15.4e + WiSUN compressed IPv6/UDP) ----
   macHeaderBytes: 21, // MHR with src/dst + auxiliary security header
   macFcsBytes: 2,
   lowpanHeaderBytes: 6, // IPHC-compressed IPv6 + UDP NHC (typical intra-PAN)
@@ -25,17 +25,19 @@ export const DEFAULT_NETWORK: NetworkParams = {
   csmaAvgBackoffMs: 4.0, // avg CSMA-CA backoff + CCA per frame
   ifsMs: 1.0, // turnaround / inter-frame spacing per frame
   hopCount: 1, // BR <-> meter mesh depth (airtime multiplier)
-  packetErrorRate: 0.02, // 2% PER -> ~1.02 expected transmissions/hop
+  packetErrorRate: 0.02, // 2% base RF PER -> ~1.02 expected transmissions/hop before poor-link overlay
+  poorLinkShare: 0, // no weak-RSSI tail by default
+  poorLinkExtraPer: 0.08, // poor-link nodes can be modelled with higher RF PER when enabled
 
-  // ---- 6LoWPAN fragmentation / reassembly ----
+  // ---- UDP application packetization / reassembly over WiSUN ----
   fragmentationEnabled: true,
   fragmentRequests: false, // default DLMS traffic is request-small / response-heavier; FOTA may enable this
-  fragmentPayloadBytes: 1280, // WiSUN L2 payload; DLMS blocks (<=~800B) rarely fragment
-  fragHeaderBytes: 5, // FRAG1 (4) / FRAGN (5) dispatch header
-  reassemblyMsPerFragment: 0.5, // receiver reassembly cost per fragment
+  fragmentPayloadBytes: 256, // default application payload bytes per UDP app packet
+  fragHeaderBytes: 5, // app-layer fragment metadata per packet
+  reassemblyMsPerFragment: 0.5, // gateway UDP app reassembly cost per packet
 
-  // ---- Raspberry Pi 2 W <-> Border Router UART (single serial line) ----
-  uartBaud: 115200,
+  // ---- Raspberry Pi Zero 2 W <-> Border Router UART (single serial line) ----
+  uartBaud: 230400,
   uartBitsPerByte: 10, // 8N1
   brFramingOverheadBytes: 6, // effective Spinel/HDLC-Lite framing overhead per UART packet
   uartFullDuplex: true, // separate TX/RX lines -> directions overlap
@@ -44,15 +46,15 @@ export const DEFAULT_NETWORK: NetworkParams = {
   brProcessingMsPerFrame: 0.5, // RF<->UART bridging per frame
   brBufferFrames: 64, // receive queue depth before frames are dropped
 
-  // ---- Gateway (Raspberry Pi 2 W, Debian, Python bridge service) ----
-  gwMqttToUdpMs: 1.8, // CPython per-pkt: parse + IPv6 lookup + build UDP + SLIP write
-  gwUdpToMqttMs: 1.8, // CPython per-pkt: reassemble + reverse lookup + MQTT publish
-  piConcurrency: 1, // GIL-bound single consumer loop
-  piLoadFactor: 1.4, // other Debian services / logging / TLS contention
+  // ---- Gateway (Raspberry Pi Zero 2 W, Debian, Python bridge service) ----
+  gwMqttToUdpMs: 1.8, // Python app-layer MQTT decode + IPv6 lookup + UDP build/send
+  gwUdpToMqttMs: 1.8, // Python app-layer UDP decode + reverse lookup + MQTT publish
+  piConcurrency: 3.2, // 4 cores × 80% usable service capacity on a Pi Zero 2 W
+  piLoadFactor: 1.0, // keep neutral by default; worker capacity already reserves 20% headroom
   gwMaxTxnPerSec: 500, // legacy info metric
 
   // ---- Meter DLMS processing ----
-  meterProcessingMs: 120, // per request (assoc/get) inside meter firmware
+  meterProcessingMs: 50, // default assumed DLMS request handling time inside meter firmware
   assocTimeoutMs: 20000, // default deployment uses 20 s association inactivity timeout
   respRandomDelayMaxMs: 0, // NIC randomised response delay (0 now; tunable later)
 
@@ -60,19 +62,20 @@ export const DEFAULT_NETWORK: NetworkParams = {
   freqHoppingEnabled: true,
   numChannels: 20, // e.g. India 865-867 MHz @ 100 kHz spacing
   unicastDwellMs: 15, // typical WiSUN unicast dwell interval
+  minTxOffMs: 0, // requested default: no extra guard beyond CSMA/IFS/FH unless field data says otherwise
 
   // ---- OS / RTOS scheduling ----
   osSchedulingMs: 2, // Debian non-RT scheduler + syscall jitter per Pi op
   piSelectPollMs: 1, // Pi select()/poll() wakeup latency
   rnThreadDelayMs: 20, // RF-NIC / Radio-Node RTOS thread scheduling delay per frame
 
-  // ---- Pi <-> RF NIC QoS2 (exactly-once) engine ----
-  piNicQos2: true,
-  piNicQos2Ms: 3, // base exactly-once handshake overhead on the local link
-  qos2RetryWindowMs: 200, // retransmit timeout for an un-acked QoS2 packet
+  // ---- UDP application-layer QoS2 / exactly-once control ----
+  udpAppQos2: true,
+  udpAppQos2Ms: 3, // base app-layer exactly-once bookkeeping / ACK overhead per packet
+  qos2RetryWindowMs: 200, // retry timeout if the UDP app-layer ACK is not observed
   qos2MaxRetries: 3,
-  qos2InterPacketMs: 0, // guard delay between two consecutive packets
-  localLinkPer: 0, // Pi<->NIC link is wired/reliable by default
+  qos2InterPacketMs: 0, // guard delay between two consecutive QoS2-protected packets
+  udpAppAckLossRate: 0, // app-layer ACK/path loss probability used for expected retries
 
   // ---- BR admission throttling ----
   throttlingEnabled: false,

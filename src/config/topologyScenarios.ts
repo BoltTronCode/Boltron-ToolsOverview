@@ -1,128 +1,75 @@
 /**
- * Fleet topology scenarios for capacity modelling.
+ * RF deployment scenarios for capacity modelling.
  *
- * In a real deployment not all meters sit at the same depth. These presets model
- * the percentage split across direct links (1 air hop) and relayed paths up to
- * 8 air hops total. Capacity and association-gap calculations use the weighted
- * fleet mix instead of a single fixed hop count for all 100 nodes.
+ * The percentages describe how the fleet is split by air-hop depth:
+ *   1st number = 1 hop, 2nd number = 2 hops, 3rd number = 3 hops, ...
  *
  * Author  : Bhautik Ramoliya
- * Company : Boltron Telesystems Private Limited
+ * Company : Boltron telesystems private limited
  */
 import type { TopologyScenario } from '../lib/types'
 
-const D = 'Direct'
-const R1 = '1 relay'
-const R2 = '2 relays'
-const R3 = '3 relays'
-const R4 = '4 relays'
-const R5 = '5 relays'
-const R6 = '6 relays'
-const R7 = '7 relays'
+const H1 = '1 hop'
+const H2 = '2 hops'
+const H3 = '3 hops'
+const H4 = '4 hops'
+const H5 = '5 hops'
+const H6 = '6 hops'
+const H7 = '7 hops'
 
 export const TOPOLOGY_SCENARIOS: TopologyScenario[] = [
   {
-    id: 'star-100',
-    label: 'Best case · 100% direct',
-    description: 'All meters connect directly to the BR (1 air hop). Absolute best-case RF capacity.',
-    buckets: [{ airHops: 1, percent: 100, label: D }],
+    id: 'in-room-100',
+    label: 'In Room · 100',
+    description: 'All meters are connected directly to the Border Router. 100% of the fleet is 1 hop.',
+    buckets: [{ airHops: 1, percent: 100, label: H1 }],
   },
   {
-    id: 'light-mesh',
-    label: 'Light mesh · mostly direct',
-    description: 'Dense deployment with most meters direct and only a small relay tail.',
+    id: 'outside-best-70-30',
+    label: 'Outside best case · 70/30',
+    description: '70% of meters are 1 hop and 30% are 2 hops.',
     buckets: [
-      { airHops: 1, percent: 70, label: D },
-      { airHops: 2, percent: 20, label: R1 },
-      { airHops: 3, percent: 10, label: R2 },
+      { airHops: 1, percent: 70, label: H1 },
+      { airHops: 2, percent: 30, label: H2 },
     ],
   },
   {
-    id: 'balanced-40-20-20',
-    label: 'Balanced mesh · 40/20/20',
-    description: 'Representative mixed mesh: 40% direct, 20% one-relay, 20% two-relay, with a realistic long tail.',
+    id: 'rf-50-20-20-10',
+    label: '50/20/20/10',
+    description: '50% at 1 hop, 20% at 2 hops, 20% at 3 hops, and 10% at 4 hops.',
     buckets: [
-      { airHops: 1, percent: 40, label: D },
-      { airHops: 2, percent: 20, label: R1 },
-      { airHops: 3, percent: 20, label: R2 },
-      { airHops: 4, percent: 10, label: R3 },
-      { airHops: 5, percent: 5, label: R4 },
-      { airHops: 6, percent: 3, label: R5 },
-      { airHops: 7, percent: 1, label: R6 },
-      { airHops: 8, percent: 1, label: R7 },
+      { airHops: 1, percent: 50, label: H1 },
+      { airHops: 2, percent: 20, label: H2 },
+      { airHops: 3, percent: 20, label: H3 },
+      { airHops: 4, percent: 10, label: H4 },
     ],
   },
   {
-    id: 'suburban',
-    label: 'Suburban mesh',
-    description: 'Moderate relay use with a meaningful 3–5 hop tail at the cell edge.',
+    id: 'rf-40-20-20-10-10',
+    label: '40/20/20/10/10',
+    description: '40% at 1 hop, 20% at 2 hops, 20% at 3 hops, 10% at 4 hops, and 10% at 5 hops.',
     buckets: [
-      { airHops: 1, percent: 30, label: D },
-      { airHops: 2, percent: 25, label: R1 },
-      { airHops: 3, percent: 20, label: R2 },
-      { airHops: 4, percent: 10, label: R3 },
-      { airHops: 5, percent: 7, label: R4 },
-      { airHops: 6, percent: 4, label: R5 },
-      { airHops: 7, percent: 2, label: R6 },
-      { airHops: 8, percent: 2, label: R7 },
+      { airHops: 1, percent: 40, label: H1 },
+      { airHops: 2, percent: 20, label: H2 },
+      { airHops: 3, percent: 20, label: H3 },
+      { airHops: 4, percent: 10, label: H4 },
+      { airHops: 5, percent: 10, label: H5 },
     ],
   },
   {
-    id: 'rural',
-    label: 'Rural mesh · deeper paths',
-    description: 'Coverage stretches farther; fewer direct links and more deep relays.',
+    id: 'rf-30-15-15-10-10-10-10',
+    label: '30/15/15/10/10/10/10',
+    description: '30% at 1 hop, 15% at 2 hops, 15% at 3 hops, and 10% each at 4, 5, 6, and 7 hops.',
     buckets: [
-      { airHops: 1, percent: 15, label: D },
-      { airHops: 2, percent: 20, label: R1 },
-      { airHops: 3, percent: 20, label: R2 },
-      { airHops: 4, percent: 15, label: R3 },
-      { airHops: 5, percent: 10, label: R4 },
-      { airHops: 6, percent: 8, label: R5 },
-      { airHops: 7, percent: 7, label: R6 },
-      { airHops: 8, percent: 5, label: R7 },
-    ],
-  },
-  {
-    id: 'edge-heavy',
-    label: 'Edge heavy · long-tail congestion',
-    description: 'A difficult deployment with many nodes near the coverage edge and substantial relay depth.',
-    buckets: [
-      { airHops: 1, percent: 10, label: D },
-      { airHops: 2, percent: 15, label: R1 },
-      { airHops: 3, percent: 20, label: R2 },
-      { airHops: 4, percent: 15, label: R3 },
-      { airHops: 5, percent: 15, label: R4 },
-      { airHops: 6, percent: 10, label: R5 },
-      { airHops: 7, percent: 10, label: R6 },
-      { airHops: 8, percent: 5, label: R7 },
-    ],
-  },
-  {
-    id: 'campus',
-    label: 'Campus / apartment block',
-    description: 'High density and short range: mostly direct or one-relay paths.',
-    buckets: [
-      { airHops: 1, percent: 55, label: D },
-      { airHops: 2, percent: 30, label: R1 },
-      { airHops: 3, percent: 10, label: R2 },
-      { airHops: 4, percent: 5, label: R3 },
-    ],
-  },
-  {
-    id: 'worst-practical',
-    label: 'Worst practical · deep mesh',
-    description: 'Stress scenario with a broad deep-mesh population up to 8 air hops.',
-    buckets: [
-      { airHops: 1, percent: 5, label: D },
-      { airHops: 2, percent: 10, label: R1 },
-      { airHops: 3, percent: 15, label: R2 },
-      { airHops: 4, percent: 20, label: R3 },
-      { airHops: 5, percent: 15, label: R4 },
-      { airHops: 6, percent: 15, label: R5 },
-      { airHops: 7, percent: 10, label: R6 },
-      { airHops: 8, percent: 10, label: R7 },
+      { airHops: 1, percent: 30, label: H1 },
+      { airHops: 2, percent: 15, label: H2 },
+      { airHops: 3, percent: 15, label: H3 },
+      { airHops: 4, percent: 10, label: H4 },
+      { airHops: 5, percent: 10, label: H5 },
+      { airHops: 6, percent: 10, label: H6 },
+      { airHops: 7, percent: 10, label: H7 },
     ],
   },
 ]
 
-export const DEFAULT_TOPOLOGY_ID = 'balanced-40-20-20'
+export const DEFAULT_TOPOLOGY_ID = 'rf-40-20-20-10-10'

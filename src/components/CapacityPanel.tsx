@@ -3,24 +3,24 @@
  * and channel-utilisation vs node-count curve.
  *
  * Author  : Bhautik Ramoliya
- * Company : Boltron Telesystems Private Limited
+ * Company : Boltron telesystems private limited
  */
 import {
-  BarChart,
+  Area,
+  AreaChart,
   Bar,
+  BarChart,
+  CartesianGrid,
+  Cell,
+  ReferenceLine,
+  ResponsiveContainer,
+  Tooltip,
   XAxis,
   YAxis,
-  CartesianGrid,
-  Tooltip,
-  ResponsiveContainer,
-  Cell,
-  AreaChart,
-  Area,
-  ReferenceLine,
 } from 'recharts'
-import { Users, TriangleAlert } from 'lucide-react'
+import { Router, TriangleAlert, Users } from 'lucide-react'
 import type { CapacityResult, TopologyScenario } from '../lib/types'
-import { fmtNum, fmtMs } from '../lib/format'
+import { fmtMs, fmtNum } from '../lib/format'
 import { Card, SectionTitle } from './ui'
 
 const AXIS = { fontSize: 11, fill: '#94a3b8' }
@@ -39,9 +39,10 @@ export function CapacityPanel({ cap, topology }: { cap: CapacityResult; topology
     { name: 'Pi CPU', nodes: cap.maxNodesPi, perNodeMs: cap.perNodePiMs },
     { name: 'BR MCU', nodes: cap.maxNodesBr, perNodeMs: cap.perNodeBrMs },
     { name: '4G/MQTT', nodes: cap.maxNodesCellular, perNodeMs: cap.perNodeCellularMs },
-  ].map((r) => ({ ...r, capped: Math.min(r.nodes, Math.max(cap.maxNodes * 6, cap.targetNodes * 2)) }))
+  ]
+    .filter((r) => Number.isFinite(r.nodes))
+    .map((r) => ({ ...r, capped: Math.min(r.nodes, Math.max(cap.maxNodes * 6, cap.targetNodes * 2)) }))
 
-  // Utilisation curve up to ~1.6x the binding limit.
   const upper = Math.max(10, Math.ceil(cap.maxNodes * 1.6))
   const steps = 40
   const curve = Array.from({ length: steps + 1 }, (_, i) => {
@@ -52,7 +53,7 @@ export function CapacityPanel({ cap, topology }: { cap: CapacityResult; topology
   return (
     <div className="space-y-3">
       <Card className="card-pad">
-        <SectionTitle icon={<Users className="h-4 w-4" />} title="Fleet topology scenario" />
+        <SectionTitle icon={<Router className="h-4 w-4" />} title="Selected RF deployment scenario" />
         <div className="flex flex-wrap items-center gap-2">
           <span className="text-sm font-semibold text-slate-900">{topology.label}</span>
           <span className="text-xs text-slate-500">{topology.description}</span>
@@ -64,7 +65,7 @@ export function CapacityPanel({ cap, topology }: { cap: CapacityResult; topology
                 key={`${b.label}-${b.airHops}`}
                 className={i % 2 === 0 ? 'bg-brand-400/85' : 'bg-cyan-400/85'}
                 style={{ width: `${b.percent}%` }}
-                title={`${b.label} · ${b.airHops} air hop(s) · ${b.percent}%`}
+                title={`${b.percent}% at ${b.airHops} hop(s)`}
               />
             ))}
           </div>
@@ -73,15 +74,25 @@ export function CapacityPanel({ cap, topology }: { cap: CapacityResult; topology
           {topology.buckets.map((b) => (
             <div key={`${b.label}-${b.airHops}-meta`} className="rounded-lg border border-slate-200 bg-slate-50 px-3 py-2 text-xs">
               <div className="font-medium text-slate-800">{b.label}</div>
-              <div className="text-slate-500">{b.airHops} air hop(s)</div>
-              <div className="stat-value mt-0.5 font-semibold text-brand-600">{b.percent}%</div>
+              <div className="text-slate-500">{b.percent}% of fleet</div>
+              <div className="stat-value mt-0.5 font-semibold text-brand-600">{b.airHops} hop(s)</div>
             </div>
           ))}
         </div>
         <p className="mt-2 text-xs text-slate-500">
-          Weighted air hops: <span className="stat-value font-semibold text-slate-700">{cap.topologyWeightedAirHops.toFixed(2)}</span>
-          {' '}· Worst bucket: <span className="stat-value font-semibold text-slate-700">{cap.topologyWorstAirHops}</span>
+          Slash notation means 1-hop / 2-hop / 3-hop / ... fleet distribution.
         </p>
+      </Card>
+
+      <Card className="card-pad">
+        <SectionTitle icon={<Users className="h-4 w-4" />} title="IS15959 fleet summary" />
+        <div className="grid gap-2 md:grid-cols-2 xl:grid-cols-5">
+          <Metric label="Weighted air hops" value={cap.topologyWeightedAirHops.toFixed(2)} hint="fleet-average RF depth" />
+          <Metric label="Worst hop count" value={fmtNum(cap.topologyWorstAirHops)} hint="deepest path in selected RF scenario" />
+          <Metric label="Effective RF PER" value={`${(cap.effectivePacketErrorRate * 100).toFixed(1)}%`} hint="base PER plus poor-link overlay" />
+          <Metric label="Binding bottleneck" value={cap.bottleneck} hint="tightest shared resource" />
+          <Metric label="Resp spread @ target" value={fmtMs(cap.responseSpreadMsAtTarget)} hint="all-node random response spread" />
+        </div>
       </Card>
 
       <div className="grid gap-3 lg:grid-cols-2">
@@ -162,6 +173,16 @@ export function CapacityPanel({ cap, topology }: { cap: CapacityResult; topology
           </p>
         </Card>
       </div>
+    </div>
+  )
+}
+
+function Metric({ label, value, hint }: { label: string; value: string; hint: string }) {
+  return (
+    <div className="rounded-xl border border-slate-200 bg-slate-50 p-3">
+      <div className="label">{label}</div>
+      <div className="stat-value mt-1 text-sm font-semibold text-slate-900">{value}</div>
+      <div className="mt-1 text-[10px] text-slate-500">{hint}</div>
     </div>
   )
 }

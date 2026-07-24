@@ -76,14 +76,16 @@ export interface NetworkParams {
   csmaAvgBackoffMs: number // average CSMA/CA backoff + CCA per frame
   ifsMs: number // inter-frame spacing / turnaround per frame
   hopCount: number // mesh depth (BR <-> meter), airtime multiplier
-  packetErrorRate: number // 0..1, drives expected retransmissions per hop
+  packetErrorRate: number // 0..1 base RF packet error rate per hop
+  poorLinkShare: number // 0..1 share of nodes suffering poor RSSI / weak RF links
+  poorLinkExtraPer: number // 0..1 extra RF PER applied to the poor-link share
 
-  // ---- 6LoWPAN fragmentation / reassembly ----
-  fragmentationEnabled: boolean // split IPv6 payloads into L2 fragments
-  fragmentRequests: boolean // true = also fragment large downlink requests (e.g. FOTA chunks)
-  fragmentPayloadBytes: number // datagram payload carried per fragment
-  fragHeaderBytes: number // 6LoWPAN FRAG1/FRAGN dispatch header per fragment
-  reassemblyMsPerFragment: number // receiver reassembly cost per fragment
+  // ---- UDP application packetization / reassembly over WiSUN ----
+  fragmentationEnabled: boolean // split large application payloads into multiple UDP app packets
+  fragmentRequests: boolean // true = also packetize large downlink requests (e.g. FOTA chunks)
+  fragmentPayloadBytes: number // application payload bytes carried per UDP app packet
+  fragHeaderBytes: number // app-layer fragment metadata added to each packet when packetized
+  reassemblyMsPerFragment: number // Pi/gateway UDP app reassembly cost per packet
 
   // ---- Pi Zero 2 <-> Border Router UART (single serial line, per direction) ----
   uartBaud: number // bits per second
@@ -95,11 +97,11 @@ export interface NetworkParams {
   brProcessingMsPerFrame: number // BR per-frame handling (RF<->UART bridging)
   brBufferFrames: number // BR receive queue depth (frames) before drop
 
-  // ---- Gateway (Raspberry Pi 2 W, Debian, Python service) ----
-  gwMqttToUdpMs: number // Python: parse MQTT + MeterID->IPv6 lookup + build UDP (per pkt)
-  gwUdpToMqttMs: number // Python: parse UDP + IPv6->MeterID + publish MQTT (per pkt)
-  piConcurrency: number // effective parallel workers (GIL-bound Python ~1)
-  piLoadFactor: number // >=1 contention multiplier from other Debian services
+  // ---- Gateway (Raspberry Pi Zero 2 W, Debian, Python service) ----
+  gwMqttToUdpMs: number // Python app-layer MQTT decode + MeterID->IPv6 lookup + build/send UDP
+  gwUdpToMqttMs: number // Python app-layer UDP decode + IPv6->MeterID + publish MQTT
+  piConcurrency: number // effective service workers; Pi Zero 2 W @ 80% of 4 cores ~= 3.2
+  piLoadFactor: number // >=1 slowdown multiplier from other Debian services
   gwMaxTxnPerSec: number // legacy sustained transaction throughput (info only)
 
   // ---- Meter ----
@@ -114,6 +116,7 @@ export interface NetworkParams {
   freqHoppingEnabled: boolean // nodes hop across all channels on time schedules
   numChannels: number // channels in the hopping set (info + collision spreading)
   unicastDwellMs: number // unicast dwell interval; TX must hit the RX's slot
+  minTxOffMs: number // minimum TX-off guard time between consecutive RF packets
   // (average rendezvous wait ~= dwell/2 per transmission).
 
   // ---- OS / RTOS scheduling ----
@@ -121,13 +124,13 @@ export interface NetworkParams {
   piSelectPollMs: number // Pi select()/poll() wakeup latency per packet
   rnThreadDelayMs: number // RF-NIC / Radio-Node RTOS thread scheduling delay/frame
 
-  // ---- Pi <-> RF NIC QoS2 (exactly-once) engine ----
-  piNicQos2: boolean // exactly-once delivery engine between Pi and RF NIC
-  piNicQos2Ms: number // base per-message overhead of that handshake
+  // ---- UDP application-layer QoS2 / exactly-once engine ----
+  udpAppQos2: boolean // exactly-once control at the UDP application layer
+  udpAppQos2Ms: number // base per-message app-layer ACK/state overhead
   qos2RetryWindowMs: number // retransmit timeout before a QoS2 packet is retried
   qos2MaxRetries: number // max QoS2 retransmissions
   qos2InterPacketMs: number // guard delay between two consecutive packets
-  localLinkPer: number // 0..1 Pi<->NIC link error rate (drives QoS2 retries)
+  udpAppAckLossRate: number // 0..1 ACK/path loss probability used to estimate retries
 
   // ---- BR admission throttling ----
   throttlingEnabled: boolean // hold part of the fleet's first requests in queue
@@ -145,7 +148,7 @@ export interface NetworkParams {
   dutyCycleLimit: number // 0..1 regulatory transmit duty cycle cap
 }
 
-/** A deployment scenario (poll vs push) driving the capacity calculation. */
+/** A traffic mode (poll vs push) driving the capacity calculation. */
 export interface UseCase {
   id: string
   label: string
@@ -162,7 +165,7 @@ export interface TopologyBucket {
   label: string
 }
 
-/** Real deployment topology for the whole fleet. */
+/** RF deployment scenario for the whole fleet, expressed as hop distribution. */
 export interface TopologyScenario {
   id: string
   label: string
@@ -192,15 +195,15 @@ export interface LatencyBudget {
 export interface AirtimeResult {
   appBytes: number
   fragments: number
-  onAirBytes: number // includes all lower-layer headers + fragmentation
+  onAirBytes: number // includes all lower-layer headers + app packetization overhead
   frameAirtimeMs: number // single traversal (no hops)
   ackAirtimeMs: number
   csmaMs: number
   perHopMs: number
   retransFactor: number
   totalAirtimeMs: number // includes hops + retransmissions
-  reassemblyMs: number // receiver reassembly cost (fragments > 1)
-  oversize: boolean // fragmentation disabled but payload exceeds PSDU cap
+  reassemblyMs: number // gateway app reassembly cost (packetized responses > 1)
+  oversize: boolean // packetization disabled but payload exceeds PSDU cap
 }
 
 /** Capacity result: how many nodes can be served. */
@@ -215,6 +218,8 @@ export interface CapacityResult {
   perNodeGwMs: number
   topologyWeightedAirHops: number
   topologyWorstAirHops: number
+  effectivePacketErrorRate: number
+  responseSpreadMsAtTarget: number
   maxStepChannelMs: number // heaviest single transaction step (weighted by topology for the fleet)
   maxNodesRf: number // limited by cycle-time channel saturation
   maxNodesUart: number
@@ -274,11 +279,12 @@ export interface BatchAnalysis {
   bottleneck: StageTiming
   batchThroughputMs: number // time to drain the whole batch (pipeline = max serial aggregate)
   singlePassLatencyMs: number // one transaction end-to-end (pipeline fill)
-  batchCompletionMs: number // batchThroughputMs + one fill
+  batchCompletionMs: number // batchThroughputMs + one fill (+ random-response tail when applicable)
   brBacklogFrames: number // peak BR receive-queue depth during an uplink burst
   brBufferFrames: number
   brOverflow: boolean
   assocGapMs: number // worst-case inter-message gap for one meter
+  responseSpreadMs: number // expected all-node response-wave spread from independent random delays
   assocTimeoutMs: number
   assocOk: boolean
   oversizeFrame: boolean // a frame exceeds PSDU cap with fragmentation off
